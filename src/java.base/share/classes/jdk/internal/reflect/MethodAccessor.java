@@ -37,4 +37,9 @@ public interface MethodAccessor {
     /** Matches specification in {@link java.lang.reflect.Method} */
     public Object invoke(Object obj, Object[] args)
         throws IllegalArgumentException, InvocationTargetException;
+
+    default Object invoke(Class<?> caller, Object obj, Object[] args)
+            throws IllegalArgumentException, InvocationTargetException {
+        return invoke(obj, args);
+    }
 }

@@ -115,7 +115,7 @@ public class MethodHandles {
     @CallerSensitive
     @ForceInline // to ensure Reflection.getCallerClass optimization
     public static Lookup lookup() {
-        return new Lookup(Reflection.getCallerClass());
+        return new Lookup(fixupCaller(Reflection.getCallerClass()));
     }
 
     /**
@@ -124,11 +124,42 @@ public class MethodHandles {
      */
     @CallerSensitive
     private static Lookup reflected$lookup() {
-        Class<?> caller = Reflection.getCallerClass();
+        Class<?> caller = fixupCaller(Reflection.getCallerClass());
         if (caller.getClassLoader() == null) {
             throw newIllegalArgumentException("illegal lookupClass: "+caller);
         }
         return new Lookup(caller);
+    }
+
+    /*
+     * Fixup the caller class if MethodHandles::lookup is called via MethodHandle.
+     * For caller-sensitive methods, the caller class returned from
+     * Reflection::getCallerClass is a hidden InjectedInvoker class which
+     * is injected as the caller class invoking a caller-sensitive method
+     * such that its defining class loader, its runtime package, and its
+     * protection domain is the same as the lookup class that looks up
+     * the caller-sensitive method.
+     */
+    private static Class<?> fixupCaller(Class<?> caller) {
+        if (caller.isHidden()) {
+            Class<?> c = MethodHandleImpl.boundCallerOrNull(caller);
+            // System.out.println("invoker " + caller + " caller " + c);
+            if (c != null) return c;
+        }
+        return caller;
+    }
+
+    /**
+     * Makes a direct method handle to the given method on behalf of the given
+     * caller class.
+     *
+     * @param caller the caller class
+     * @param method the reflected method
+     * @return a method handle which can invoke the reflected method
+     */
+    static MethodHandle unreflect(Class<?> caller, Method method) throws IllegalAccessException {
+        Lookup lookup = new Lookup(caller);
+        return lookup.unreflect(method);
     }
 
     /**
@@ -2369,15 +2400,16 @@ public class MethodHandles {
 
         /**
          * Returns a ClassDefiner that creates a {@code Class} object of a hidden class
-         * from the given bytes.  No package name check on the given name.
+         * from the given bytes and the given options.  No package name check on the given name.
          *
          * @param name    fully-qualified name that specifies the prefix of the hidden class
          * @param bytes   class bytes
-         * @return ClassDefiner that defines a hidden class of the given bytes.
+         * @param options class options
+         * @return ClassDefiner that defines a hidden class of the given bytes and options.
          */
-        ClassDefiner makeHiddenClassDefiner(String name, byte[] bytes) {
+        ClassDefiner makeHiddenClassDefiner(String name, byte[] bytes, Set<ClassOption> options) {
             // skip name and access flags validation
-            return makeHiddenClassDefiner(ClassFile.newInstanceNoCheck(name, bytes), Set.of(), false);
+            return makeHiddenClassDefiner(ClassFile.newInstanceNoCheck(name, bytes), options, false);
         }
 
         /**

@@ -554,8 +554,13 @@ public final class Method extends Executable {
         throws IllegalAccessException, IllegalArgumentException,
            InvocationTargetException
     {
+        boolean callerSensitive = Reflection.isCallerSensitive(this);
+        Class<?> caller = null;
+        if (!override || callerSensitive) {
+            caller = Reflection.getCallerClass();
+        }
+
         if (!override) {
-            Class<?> caller = Reflection.getCallerClass();
             checkAccess(caller, clazz,
                         Modifier.isStatic(modifiers) ? null : obj.getClass(),
                         modifiers);
@@ -564,7 +569,8 @@ public final class Method extends Executable {
         if (ma == null) {
             ma = acquireMethodAccessor();
         }
-        return ma.invoke(obj, args);
+
+        return caller != null ? ma.invoke(caller, obj, args) : ma.invoke(obj, args);
     }
 
     /**

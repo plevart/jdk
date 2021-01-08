@@ -40,8 +40,10 @@ import sun.invoke.util.ValueConversions;
 import sun.invoke.util.VerifyType;
 import sun.invoke.util.Wrapper;
 
+import java.lang.constant.ConstantDescs;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Array;
+import java.lang.reflect.Method;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,6 +51,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -1126,11 +1129,39 @@ abstract class MethodHandleImpl {
         return BindCaller.bindCaller(mh, hostClass);
     }
 
+    /*
+     * If the given invoker class is a hidden InjectedInvoker class,
+     * this method returns the class that is stored as the class data of
+     * the injected invoker class which is the lookup class bound to
+     * the method handle for a caller-sensitive method at lookup time.
+     * This injected invoker class has the same defining class loader,
+     * runtime package, and protection domain as the lookup class that
+     * looks up the caller-sensitive method.
+     */
+    static Class<?> boundCallerOrNull(Class<?> invoker) {
+        if (invoker.isHidden() && invoker.getName().contains(BindCaller.INVOKER_SUFFIX)) {
+            Lookup lookup = new Lookup(invoker);
+            try {
+                Object cd = MethodHandles.classData(lookup, ConstantDescs.DEFAULT_NAME, Object.class);
+                if (cd instanceof Class c) {
+                    // System.out.println(c + " invoker " + invoker);
+                    if (invoker.getModule() == c.getModule() &&
+                            invoker.getName().startsWith(c.getName() + BindCaller.INVOKER_SUFFIX)) {
+                        return c;
+                    }
+                }
+            } catch (IllegalAccessException e) {
+                throw new InternalError(e);
+            }
+        }
+        return null;
+    }
+
     // Put the whole mess into its own nested class.
     // That way we can lazily load the code and set up the constants.
     private static class BindCaller {
         private static MethodType INVOKER_MT = MethodType.methodType(Object.class, MethodHandle.class, Object[].class);
-
+        private static final String INVOKER_SUFFIX = "$$InjectedInvoker";
         static MethodHandle bindCaller(MethodHandle mh, Class<?> hostClass) {
             // Code in the boot layer should now be careful while creating method handles or
             // functional interface instances created from method references to @CallerSensitive  methods,
@@ -1158,14 +1189,14 @@ abstract class MethodHandleImpl {
                  *
                  * @CSM must be public and exported if called by any module.
                  */
-                String name = targetClass.getName() + "$$InjectedInvoker";
+                String name = targetClass.getName() + INVOKER_SUFFIX;
                 if (targetClass.isHidden()) {
                     // use the original class name
                     name = name.replace('/', '_');
                 }
                 Class<?> invokerClass = new Lookup(targetClass)
-                        .makeHiddenClassDefiner(name, INJECTED_INVOKER_TEMPLATE)
-                        .defineClass(true);
+                        .makeHiddenClassDefiner(name, INJECTED_INVOKER_TEMPLATE, Set.of(Lookup.ClassOption.NESTMATE))
+                        .defineClass(true, targetClass);
                 assert checkInjectedInvoker(targetClass, invokerClass);
                 return IMPL_LOOKUP.findStatic(invokerClass, "invoke_V", INVOKER_MT);
             } catch (ReflectiveOperationException ex) {
@@ -1769,6 +1800,11 @@ abstract class MethodHandleImpl {
             @Override
             public MethodHandle nativeMethodHandle(NativeEntryPoint nep, MethodHandle fallback) {
                 return NativeMethodHandle.make(nep, fallback);
+            }
+
+            @Override
+            public MethodHandle unreflectMethod(Class<?> caller, Method method) throws IllegalAccessException {
+                return MethodHandles.unreflect(caller, method);
             }
 
             @Override

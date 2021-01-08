@@ -87,6 +87,7 @@ public class ReflectionFactory {
     // and NativeConstructorAccessorImpl
     private static boolean noInflation        = false;
     private static int     inflationThreshold = 15;
+    private static boolean useDirectMethodHandle = true;
 
     // true if deserialization constructor checking is disabled
     private static boolean disableSerialConstructorChecks = false;
@@ -202,22 +203,30 @@ public class ReflectionFactory {
             method = root;
         }
 
-        if (noInflation && !method.getDeclaringClass().isHidden()
+        if (!method.getDeclaringClass().isHidden()
                 && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass())) {
-            return new MethodAccessorGenerator().
-                generateMethod(method.getDeclaringClass(),
-                               method.getName(),
-                               method.getParameterTypes(),
-                               method.getReturnType(),
-                               method.getExceptionTypes(),
-                               method.getModifiers());
+            if (VM.isBooted() || noInflation)
+                return createMethodAccessor(method);
+        }
+        NativeMethodAccessorImpl acc = new NativeMethodAccessorImpl(method);
+        DelegatingMethodAccessorImpl res = new DelegatingMethodAccessorImpl(acc);
+        acc.setParent(res);
+        return res;
+    }
+
+    static MethodAccessor createMethodAccessor(Method method) {
+        assert !method.getDeclaringClass().isHidden()
+                    && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass());
+
+        if (useDirectMethodHandle && VM.isModuleSystemInited()) {
+            return DirectMethodAccessorImpl.newDirectMethodAccessor(method);
         } else {
-            NativeMethodAccessorImpl acc =
-                new NativeMethodAccessorImpl(method);
-            DelegatingMethodAccessorImpl res =
-                new DelegatingMethodAccessorImpl(acc);
-            acc.setParent(res);
-            return res;
+            return new MethodAccessorGenerator().generateMethod(method.getDeclaringClass(),
+                                                                method.getName(),
+                                                                method.getParameterTypes(),
+                                                                method.getReturnType(),
+                                                                method.getExceptionTypes(),
+                                                                method.getModifiers());
         }
     }
 
@@ -663,6 +672,11 @@ public class ReflectionFactory {
             } catch (NumberFormatException e) {
                 throw new RuntimeException("Unable to parse property sun.reflect.inflationThreshold", e);
             }
+        }
+
+        val = props.getProperty("jdk.reflect.useDirectMethodHandle");
+        if (val != null && val.equals("false")) {
+            useDirectMethodHandle = false;
         }
 
         disableSerialConstructorChecks =

@@ -59,14 +59,7 @@ class NativeMethodAccessorImpl extends MethodAccessorImpl {
                 && generated == 0
                 && U.compareAndSetInt(this, GENERATED_OFFSET, 0, 1)) {
             try {
-                MethodAccessorImpl acc = (MethodAccessorImpl)
-                    new MethodAccessorGenerator().
-                        generateMethod(method.getDeclaringClass(),
-                                       method.getName(),
-                                       method.getParameterTypes(),
-                                       method.getReturnType(),
-                                       method.getExceptionTypes(),
-                                       method.getModifiers());
+                MethodAccessorImpl acc = (MethodAccessorImpl)ReflectionFactory.createMethodAccessor(method);
                 parent.setDelegate(acc);
             } catch (Throwable t) {
                 // Throwable happens in generateMethod, restore generated to 0
