@@ -570,7 +570,7 @@ public final class Method extends Executable {
             ma = acquireMethodAccessor();
         }
 
-        return caller != null ? ma.invoke(caller, obj, args) : ma.invoke(obj, args);
+        return callerSensitive && caller != null ? ma.invoke(caller, obj, args) : ma.invoke(obj, args);
     }
 
     /**

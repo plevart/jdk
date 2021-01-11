@@ -50,14 +50,21 @@ public class ReflectionSpeedBenchmark {
 
     static final Method staticMethodConst;
     static final Method instanceMethodConts;
+    static final Method classForName1argConst;
+    static final Method classForName3argConst;
 
     static Method staticMethodVar;
     static Method instanceMethodVar;
+    static Method classForName1argVar;
+    static Method classForName3argVar;
 
     static {
         try {
             staticMethodVar = staticMethodConst = ReflectionSpeedBenchmark.class.getDeclaredMethod("sumStatic", int.class, int.class);
             instanceMethodVar = instanceMethodConts = ReflectionSpeedBenchmark.class.getDeclaredMethod("sumInstance", int.class, int.class);
+            classForName1argVar = classForName1argConst = Class.class.getMethod("forName", String.class);
+            classForName3argVar = classForName3argConst = Class.class.getMethod("forName", String.class, boolean.class, ClassLoader.class);
+
         } catch (NoSuchMethodException e) {
             throw new NoSuchMethodError(e.getMessage());
         }
@@ -106,7 +113,22 @@ public class ReflectionSpeedBenchmark {
             throw new AssertionError(e);
         }
     }
-
+    @Benchmark
+    public Class<?> classForName1argConst() {
+        try {
+            return (Class<?>) classForName1argVar.invoke(null, "java.lang.System");
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new AssertionError(e);
+        }
+    }
+    @Benchmark
+    public Class<?> classForName3argConst() {
+        try {
+            return (Class<?>) classForName3argVar.invoke(null, "java.lang.System", false, null);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new AssertionError(e);
+        }
+    }
     @Benchmark
     public int staticReflectiveVar() {
         try {
@@ -120,6 +142,24 @@ public class ReflectionSpeedBenchmark {
     public int instanceReflectiveVar() {
         try {
             return (Integer) instanceMethodVar.invoke(this, a, b);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Benchmark
+    public Class<?> classForName1argVar() {
+        try {
+            return (Class<?>) classForName1argVar.invoke(null, "java.lang.System");
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Benchmark
+    public Class<?> classForName3argVar() {
+        try {
+            return (Class<?>) classForName3argVar.invoke(null, "java.lang.System", false, null);
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new AssertionError(e);
         }

@@ -1169,8 +1169,8 @@ abstract class MethodHandleImpl {
             // from the boot layer to untrusted code.
             if (hostClass == null
                 ||    (hostClass.isArray() ||
-                       hostClass.isPrimitive() ||
-                       hostClass.getName().startsWith("java.lang.invoke."))) {
+                       hostClass.isPrimitive() // ||
+                       /* hostClass.getName().startsWith("java.lang.invoke.") */)) {
                 throw new InternalError();  // does not happen, and should not anyway
             }
             // For simplicity, convert mh to a varargs-like method.

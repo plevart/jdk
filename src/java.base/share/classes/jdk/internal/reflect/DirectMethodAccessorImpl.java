@@ -31,50 +31,46 @@ import jdk.internal.access.SharedSecrets;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static java.lang.invoke.MethodType.methodType;
 
-/** <P> Package-private implementation of the MethodAccessor interface
-    which has access to all classes and all fields, regardless of
-    language restrictions. See MagicAccessor. </P>
-
-    <P> This class is known to the VM; do not change its name without
-    also changing the VM's code. </P>
-
-    <P> NOTE: ALL methods of subclasses are skipped during security
-    walks up the stack. The assumption is that the only such methods
-    that will persistently show up on the stack are the implementing
-    methods for java.lang.reflect.Method.invoke(). </P>
-*/
 final class DirectMethodAccessorImpl extends MethodAccessorImpl {
     static MethodAccessor newDirectMethodAccessor(Method m) {
-        // access check has already been performed before getting MethodAccess
-        // suppress the access check when unreflecting the method into a DirectMethodHandle
-        PrivilegedAction<Method> pa = () -> {
+        try {
+            if (Reflection.isCallerSensitive(m)) {
+                Method altmethod = findAltCallerSensitiveMethod(m);
+                if (altmethod != null) {
+                    MethodHandle target = directMethodHandle(altmethod.getDeclaringClass(), altmethod, true);
+                    return new DirectMethodAccessorImpl(altmethod, m, target);
+                }
+            }
             Method method = JLRA.copyMethod(m);
-            method.setAccessible(true);
-            return method;
-        };
-        Method method = AccessController.doPrivileged(pa);
-        return new DirectMethodAccessorImpl(method);
+            MethodHandle target = directMethodHandle(method.getDeclaringClass(), method, false);
+            return new DirectMethodAccessorImpl(method, null, target);
+        } catch (IllegalAccessException e) {
+            throw new InternalError(e);
+        }
     }
 
     private final Method method;
-    private DirectMethodAccessorImpl(Method m) {
-        this.method = m;
+    private final Method csm;
+    private final MethodHandle target;      // target method handle bound to the declaring class of the method
+    private DirectMethodAccessorImpl(Method method, Method csm, MethodHandle target) {
+        this.method = method;
+        this.csm = csm;
+        this.target = target;
     }
 
     @Override
     public Object invoke(Object obj, Object[] args)
             throws IllegalArgumentException, InvocationTargetException {
         try {
-            MethodHandle target = directMethodHandle(method.getDeclaringClass(), method);
             return target.invokeExact(obj, args);
         } catch (IllegalArgumentException|InvocationTargetException e) {
             throw e;
@@ -85,75 +81,126 @@ final class DirectMethodAccessorImpl extends MethodAccessorImpl {
         }
     }
 
+    private volatile CallerSensitiveMethodHandleCache csmCache;
+
+    /*
+     * This prototype two ways to invoke CSM for performance comparsion.
+     * 1. Direct invocation of the method handle of CSM.  The target MH is bound
+     *    with the caller class (by injecting an invoker class which will be the
+     *    caller class of the CSM via MH).  A new MH is created for a different
+     *    caller.  CSM.invoke does stack walking twice to find the caller class
+     *    (1) Method::invoke (2) CSM is invoked via MH.
+     *
+     * 2. Direct invocation of an implementation method of CSM that takes
+     *    the caller class as the first argument.  The target MH is invoked
+     *    for any caller class. This method invocation does stack walking only
+     *    once (Method::invoke).  The target MH is not a caller-sensitive method.
+     */
     @Override
     public Object invoke(Class<?> caller, Object obj, Object[] args)
             throws IllegalArgumentException, InvocationTargetException {
+        MethodHandle dmh;
+        if (csm == null) {
+            // direct invocation of the CSM
+            assert Reflection.isCallerSensitive(method);
+
+            // direct method handle to the caller-sensitive method invoked by the given caller
+            dmh = csmCache != null ? csmCache.methodHandle(caller) : null;
+            if (dmh == null) {
+                try {
+                    dmh = directMethodHandle(caller, method, false);
+                    // push MH into cache
+                    csmCache = new CallerSensitiveMethodHandleCache(caller, dmh);
+                } catch (IllegalAccessException e) {
+                    throw new InternalError(e);
+                }
+            }
+        } else {
+            assert Reflection.isCallerSensitive(csm) && method.getParameterCount() == csm.getParameterCount()+1;
+            dmh = target;
+        }
+
         try {
-            MethodHandle target = directMethodHandle(caller, method);
-            return target.invokeExact(obj, args);
+            return csm != null ? dmh.invokeExact(obj, caller, args) : dmh.invokeExact(obj, args);
         } catch (IllegalArgumentException|InvocationTargetException e) {
             throw e;
         } catch (ClassCastException|NullPointerException e) {
-            throw new IllegalArgumentException(e.getMessage());
+            throw new IllegalArgumentException(e.getMessage(), e);
         } catch (Throwable e) {
             throw new InvocationTargetException(e);
         }
     }
 
-    private MethodHandle directMethodHandle(Class<?> caller, Method method) throws IllegalAccessException {
-        ConcurrentHashMap<Method, MethodHandle> methods = directMethodHandleMap(caller);
-        // direct method handle to target method
-        MethodHandle dmh = methods.get(method);
-        if (dmh == null) {
-            MethodHandle mh = JLIA.unreflectMethod(caller, method);
-            int paramCount = mh.type().parameterCount();
+    class CallerSensitiveMethodHandleCache {
+        final WeakReference<Class<?>> callerRef;
+        final WeakReference<MethodHandle> targetRef;
+        CallerSensitiveMethodHandleCache(Class<?> caller, MethodHandle target) {
+            this.callerRef = new WeakReference<>(caller);
+            this.targetRef = new WeakReference<>(target);
+        }
 
-            // invoke method with an exception handler that throws InvocationTargetException
-            mh = MethodHandles.catchException(mh, Throwable.class, WRAP.asType(methodType(mh.type().returnType(), Throwable.class)));
-            if (Modifier.isStatic(method.getModifiers())) {
-                // static method
+        MethodHandle methodHandle(Class<?> caller) {
+            if (callerRef.refersTo(caller)) {
+                return targetRef.get();
+            }
+            return null;
+        }
+    }
+
+    private static MethodHandle directMethodHandle(Class<?> caller, Method method, boolean injectCallerParam) throws IllegalAccessException {
+        // access check has already been performed before getting MethodAccess
+        // suppress the access check when unreflecting the method into a DirectMethodHandle
+        // Lookup does not have the implicit readability
+        PrivilegedAction<Method> pa = () -> {
+            method.setAccessible(true);
+            return method;
+        };
+        AccessController.doPrivileged(pa);
+
+        MethodHandle mh = JLIA.unreflectMethod(caller, method);
+        int paramCount = mh.type().parameterCount();
+
+        // invoke method with an exception handler that throws InvocationTargetException
+        mh = MethodHandles.catchException(mh, Throwable.class, WRAP.asType(methodType(mh.type().returnType(), Throwable.class)));
+        if (Modifier.isStatic(method.getModifiers())) {
+            // static method
+            if (injectCallerParam) {
+                MethodHandle spreader = mh.asSpreader(Object[].class, paramCount - 1);
+                spreader = MethodHandles.dropArguments(spreader, 0, Object.class);
+                mh = spreader.asType(methodType(Object.class, Object.class, Class.class, Object[].class));
+            } else {
                 MethodHandle spreader = mh.asSpreader(Object[].class, paramCount);
                 spreader = MethodHandles.dropArguments(spreader, 0, Object.class);
                 mh = spreader.asType(methodType(Object.class, Object.class, Object[].class));
+            }
+        } else {
+            // instance method
+            if (injectCallerParam) {
+                MethodHandle spreader = mh.asSpreader(2, Object[].class, paramCount - 2);
+                mh = spreader.asType(methodType(Object.class, Object.class, Class.class, Object[].class));
             } else {
-                // instance method
                 MethodHandle spreader = mh.asSpreader(Object[].class, paramCount - 1);
                 mh = spreader.asType(methodType(Object.class, Object.class, Object[].class));
             }
-
-            // push MH into cache
-            MethodHandle cached = methods.putIfAbsent(method, mh);
-            if (cached != null) {
-                dmh = cached;
-            } else {
-                dmh = mh;
-            }
         }
-        return dmh;
+        return mh;
     }
 
-    /**
-     * A cache of Method -> MethodHandle
-     *
-     * For non-caller-sensitive methods, the direct method handles are cached
-     * in the map of the declaring class of the method.
-     *
-     * For caller-sensitive methods, the direct method handles are cached
-     * in the map of the caller class invoking Method::invoke.
-     *
-     * ## TODO: caller class will hold strong references to methods in another class.
-     * should they be weak reference so that some entries can be GC'ed if
-     * the Method object is no longer reachable.
-     */
-    private static final ClassValue<ConcurrentHashMap<Method, MethodHandle>> DMH_MAP = new ClassValue<>() {
-        @Override
-        protected ConcurrentHashMap<Method, MethodHandle> computeValue(Class<?> type) {
-            return new ConcurrentHashMap<>(4);
+    private static Method findAltCallerSensitiveMethod(Method method) {
+        String name = "reflected$" + method.getName();
+        Class<?>[] paramTypes = method.getParameterTypes();
+        int paramCount = paramTypes.length;
+        Class<?>[] newParamTypes = new Class<?>[paramCount + 1];
+        newParamTypes[0] = Class.class;
+        if (paramCount > 0) {
+            System.arraycopy(paramTypes, 0, newParamTypes, 1, paramCount);
         }
-    };
-
-    private static ConcurrentHashMap<Method, MethodHandle> directMethodHandleMap(Class<?> caller) {
-        return DMH_MAP.get(caller);
+        try {
+            return method.getDeclaringClass()
+                         .getDeclaredMethod(name, newParamTypes);
+        } catch (NoSuchMethodException ex) {
+            return null;
+        }
     }
 
     // make this package-private to workaround a bug in Reflection::getCallerClass
