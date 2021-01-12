@@ -205,7 +205,7 @@ public class ReflectionFactory {
 
         if (!method.getDeclaringClass().isHidden()
                 && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass())) {
-            if (VM.isBooted() || noInflation)
+            if (VM.isModuleSystemInited() || noInflation)
                 return createMethodAccessor(method);
         }
         NativeMethodAccessorImpl acc = new NativeMethodAccessorImpl(method);
@@ -217,9 +217,9 @@ public class ReflectionFactory {
     static MethodAccessor createMethodAccessor(Method method) {
         assert !method.getDeclaringClass().isHidden()
                     && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass());
-
-        if (useDirectMethodHandle && VM.isModuleSystemInited()) {
-            return DirectMethodAccessorImpl.newDirectMethodAccessor(method);
+        if (useDirectMethodHandle) {
+            assert VM.isModuleSystemInited();
+            return MethodHandleAccessorFactory.newMethodAccessor(method);
         } else {
             return new MethodAccessorGenerator().generateMethod(method.getDeclaringClass(),
                                                                 method.getName(),
@@ -256,20 +256,30 @@ public class ReflectionFactory {
             return new BootstrapConstructorAccessorImpl(c);
         }
 
-        if (noInflation && !c.getDeclaringClass().isHidden()
+        if (!c.getDeclaringClass().isHidden()
                 && !ReflectUtil.isVMAnonymousClass(c.getDeclaringClass())) {
-            return new MethodAccessorGenerator().
-                generateConstructor(c.getDeclaringClass(),
-                                    c.getParameterTypes(),
-                                    c.getExceptionTypes(),
-                                    c.getModifiers());
+            if (VM.isModuleSystemInited() || noInflation)
+                return createConstructorAccessor(c);
+        }
+
+        NativeConstructorAccessorImpl acc = new NativeConstructorAccessorImpl(c);
+        DelegatingConstructorAccessorImpl res = new DelegatingConstructorAccessorImpl(acc);
+        acc.setParent(res);
+        return res;
+    }
+
+    static ConstructorAccessor createConstructorAccessor(Constructor<?> c) {
+        assert !c.getDeclaringClass().isHidden()
+                && !ReflectUtil.isVMAnonymousClass(c.getDeclaringClass());
+
+        if (useDirectMethodHandle) {
+            assert VM.isModuleSystemInited();
+            return MethodHandleAccessorFactory.newConstructorAccessor(c);
         } else {
-            NativeConstructorAccessorImpl acc =
-                new NativeConstructorAccessorImpl(c);
-            DelegatingConstructorAccessorImpl res =
-                new DelegatingConstructorAccessorImpl(acc);
-            acc.setParent(res);
-            return res;
+            return new MethodAccessorGenerator().generateConstructor(c.getDeclaringClass(),
+                                                                     c.getParameterTypes(),
+                                                                     c.getExceptionTypes(),
+                                                                     c.getModifiers());
         }
     }
 

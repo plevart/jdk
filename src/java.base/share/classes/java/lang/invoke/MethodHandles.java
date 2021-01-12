@@ -115,7 +115,7 @@ public class MethodHandles {
     @CallerSensitive
     @ForceInline // to ensure Reflection.getCallerClass optimization
     public static Lookup lookup() {
-        return new Lookup(fixupCaller(Reflection.getCallerClass()));
+        return newLookupforCaller(Reflection.getCallerClass());
     }
 
     /**
@@ -124,29 +124,31 @@ public class MethodHandles {
      */
     @CallerSensitive
     private static Lookup reflected$lookup() {
-        Class<?> caller = fixupCaller(Reflection.getCallerClass());
+        Class<?> caller = Reflection.getCallerClass();
         if (caller.getClassLoader() == null) {
             throw newIllegalArgumentException("illegal lookupClass: "+caller);
         }
-        return new Lookup(caller);
+        return newLookupforCaller(caller);
     }
 
-    /*
-     * Fixup the caller class if MethodHandles::lookup is called via MethodHandle.
-     * For caller-sensitive methods, the caller class returned from
-     * Reflection::getCallerClass is a hidden InjectedInvoker class which
-     * is injected as the caller class invoking a caller-sensitive method
-     * such that its defining class loader, its runtime package, and its
-     * protection domain is the same as the lookup class that looks up
-     * the caller-sensitive method.
-     */
-    private static Class<?> fixupCaller(Class<?> caller) {
+    private static Lookup newLookupforCaller(Class<?> caller) {
+        /*
+         * Fixup the caller class if MethodHandles::lookup is called via MethodHandle.
+         * For caller-sensitive methods, the caller class returned from
+         * Reflection::getCallerClass is a hidden InjectedInvoker class which
+         * is injected as the caller class invoking a caller-sensitive method
+         * such that its defining class loader, its runtime package, and its
+         * protection domain is the same as the lookup class that looks up
+         * the caller-sensitive method.
+         */
         if (caller.isHidden()) {
             Class<?> c = MethodHandleImpl.boundCallerOrNull(caller);
-            // System.out.println("invoker " + caller + " caller " + c);
-            if (c != null) return c;
+            if (c != null) {
+                caller = c;
+            }
         }
-        return caller;
+
+        return new Lookup(caller);
     }
 
     /**
@@ -160,6 +162,19 @@ public class MethodHandles {
     static MethodHandle unreflect(Class<?> caller, Method method) throws IllegalAccessException {
         Lookup lookup = new Lookup(caller);
         return lookup.unreflect(method);
+    }
+
+    /**
+     * Makes a direct method handle to the given constructor on behalf of the given
+     * caller class.
+     *
+     * @param caller the caller class
+     * @param ctor the reflected constructor
+     * @return a method handle which can invoke the reflected constructor
+     */
+    static MethodHandle unreflectConstructor(Class<?> caller, Constructor<?> ctor) throws IllegalAccessException {
+        Lookup lookup = new Lookup(caller);
+        return lookup.unreflectConstructor(ctor);
     }
 
     /**

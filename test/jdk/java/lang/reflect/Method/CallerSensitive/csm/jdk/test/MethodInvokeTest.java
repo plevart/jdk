@@ -28,6 +28,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
+import java.lang.reflect.ReflectPermission;
 import java.security.Permission;
 import java.security.PermissionCollection;
 import java.security.Permissions;

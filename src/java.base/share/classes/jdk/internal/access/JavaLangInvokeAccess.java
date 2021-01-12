@@ -30,6 +30,7 @@ import jdk.internal.invoke.NativeEntryPoint;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.ByteOrder;
 import java.util.List;
@@ -135,4 +136,6 @@ public interface JavaLangInvokeAccess {
     MethodHandle nativeMethodHandle(NativeEntryPoint nep, MethodHandle fallback);
 
     MethodHandle unreflectMethod(Class<?> caller, Method method) throws IllegalAccessException;
+    MethodHandle unreflectConstructor(Class<?> caller, Constructor<?> ctor) throws IllegalAccessException;
+
 }

@@ -43,6 +43,7 @@ import sun.invoke.util.Wrapper;
 import java.lang.constant.ConstantDescs;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -1805,6 +1806,11 @@ abstract class MethodHandleImpl {
             @Override
             public MethodHandle unreflectMethod(Class<?> caller, Method method) throws IllegalAccessException {
                 return MethodHandles.unreflect(caller, method);
+            }
+
+            @Override
+            public MethodHandle unreflectConstructor(Class<?> caller, Constructor<?> ctor) throws IllegalAccessException {
+                return MethodHandles.unreflectConstructor(caller, ctor);
             }
 
             @Override
