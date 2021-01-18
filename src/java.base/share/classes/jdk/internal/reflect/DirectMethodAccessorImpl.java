@@ -25,6 +25,8 @@
 
 package jdk.internal.reflect;
 
+import jdk.internal.vm.annotation.ForceInline;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
@@ -39,6 +41,7 @@ final class DirectMethodAccessorImpl extends MethodAccessorImpl {
     }
 
     @Override
+    @ForceInline
     public Object invoke(Object obj, Object[] args)
             throws IllegalArgumentException, InvocationTargetException {
         try {

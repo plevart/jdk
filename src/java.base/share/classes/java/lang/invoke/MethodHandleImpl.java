@@ -44,6 +44,7 @@ import java.lang.constant.ConstantDescs;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.ByteOrder;
 import java.util.Arrays;
@@ -1809,8 +1810,13 @@ abstract class MethodHandleImpl {
             }
 
             @Override
-            public MethodHandle unreflectConstructor(Class<?> caller, Constructor<?> ctor) throws IllegalAccessException {
-                return MethodHandles.unreflectConstructor(caller, ctor);
+            public MethodHandle unreflectConstructor(Constructor<?> ctor) throws IllegalAccessException {
+                return MethodHandles.unreflectConstructor(ctor);
+            }
+
+            @Override
+            public MethodHandle unreflectField(Field field, boolean isSetter) throws IllegalAccessException {
+                return MethodHandles.unreflectField(field, isSetter);
             }
 
             @Override

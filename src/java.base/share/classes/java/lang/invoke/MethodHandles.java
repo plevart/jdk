@@ -165,16 +165,24 @@ public class MethodHandles {
     }
 
     /**
-     * Makes a direct method handle to the given constructor on behalf of the given
-     * caller class.
+     * Makes a direct method handle to the given constructor.
      *
-     * @param caller the caller class
      * @param ctor the reflected constructor
      * @return a method handle which can invoke the reflected constructor
      */
-    static MethodHandle unreflectConstructor(Class<?> caller, Constructor<?> ctor) throws IllegalAccessException {
-        Lookup lookup = new Lookup(caller);
-        return lookup.unreflectConstructor(ctor);
+    static MethodHandle unreflectConstructor(Constructor<?> ctor) throws IllegalAccessException {
+        return Lookup.IMPL_LOOKUP.unreflectConstructor(ctor);
+    }
+
+    /**
+     * Makes a direct method handle to the given field.
+     *
+     * @param field the reflected field
+     * @param isSetter setter
+     * @return a method handle which can invoke the reflected field
+     */
+    static MethodHandle unreflectField(Field field, boolean isSetter) throws IllegalAccessException {
+        return Lookup.IMPL_LOOKUP.unreflectField(field, isSetter);
     }
 
     /**

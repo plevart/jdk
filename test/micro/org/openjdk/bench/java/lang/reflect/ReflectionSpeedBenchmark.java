@@ -35,6 +35,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.concurrent.ThreadLocalRandom;
@@ -52,11 +53,15 @@ public class ReflectionSpeedBenchmark {
     static final Method instanceMethodConts;
     static final Method classForName1argConst;
     static final Method classForName3argConst;
+    static final Field staticFieldConst;
+    static final Field instanceFieldConst;
 
     static Method staticMethodVar;
     static Method instanceMethodVar;
     static Method classForName1argVar;
     static Method classForName3argVar;
+    static final Field staticFieldVar;
+    static final Field instanceFieldVar;
 
     static {
         try {
@@ -64,11 +69,15 @@ public class ReflectionSpeedBenchmark {
             instanceMethodVar = instanceMethodConts = ReflectionSpeedBenchmark.class.getDeclaredMethod("sumInstance", int.class, int.class);
             classForName1argVar = classForName1argConst = Class.class.getMethod("forName", String.class);
             classForName3argVar = classForName3argConst = Class.class.getMethod("forName", String.class, boolean.class, ClassLoader.class);
-
-        } catch (NoSuchMethodException e) {
+            staticFieldVar = staticFieldConst = ReflectionSpeedBenchmark.class.getDeclaredField("staticFoo");
+            instanceFieldVar = instanceFieldConst = ReflectionSpeedBenchmark.class.getDeclaredField("foo");
+        } catch (NoSuchMethodException|NoSuchFieldException e) {
             throw new NoSuchMethodError(e.getMessage());
         }
     }
+
+    public static int staticFoo;
+    public int foo;
 
     private int a, b;
 
@@ -97,9 +106,27 @@ public class ReflectionSpeedBenchmark {
     }
 
     @Benchmark
+    public int staticGetFieldDirect() {
+        return staticFoo;
+    }
+    @Benchmark
+    public int staticPutFieldDirect() {
+        return staticFoo = 10;
+    }
+
+    @Benchmark
+    public int getFieldDirect() {
+        return foo;
+    }
+    @Benchmark
+    public int putFieldDirect() {
+        return foo = 10;
+    }
+
+    @Benchmark
     public int staticReflectiveConst() {
         try {
-            return (Integer) staticMethodConst.invoke(null, a, b);
+            return (int) staticMethodConst.invoke(null, a, b);
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new AssertionError(e);
         }
@@ -108,11 +135,48 @@ public class ReflectionSpeedBenchmark {
     @Benchmark
     public int instanceReflectiveConst() {
         try {
-            return (Integer) instanceMethodConts.invoke(this, a, b);
+            return (int) instanceMethodConts.invoke(this, a, b);
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new AssertionError(e);
         }
     }
+
+    @Benchmark
+    public int staticReflectiveGetterConst() {
+        try {
+            return (int) staticFieldConst.get(null);
+        } catch (IllegalAccessException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Benchmark
+    public int instanceReflectiveGetterConst() {
+        try {
+            return (int) instanceFieldConst.get(this);
+        } catch (IllegalAccessException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Benchmark
+    public void staticReflectiveSetterConst() {
+        try {
+            staticFieldConst.setInt(null, 10);
+        } catch (IllegalAccessException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Benchmark
+    public void instanceReflectiveSetterConst() {
+        try {
+            instanceFieldConst.setInt(this, 20);
+        } catch (IllegalAccessException e) {
+            throw new AssertionError(e);
+        }
+    }
+
     @Benchmark
     public Class<?> classForName1argConst() {
         try {
@@ -132,7 +196,7 @@ public class ReflectionSpeedBenchmark {
     @Benchmark
     public int staticReflectiveVar() {
         try {
-            return (Integer) staticMethodVar.invoke(null, a, b);
+            return (int) staticMethodVar.invoke(null, a, b);
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new AssertionError(e);
         }
@@ -141,8 +205,44 @@ public class ReflectionSpeedBenchmark {
     @Benchmark
     public int instanceReflectiveVar() {
         try {
-            return (Integer) instanceMethodVar.invoke(this, a, b);
+            return (int) instanceMethodVar.invoke(this, a, b);
         } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Benchmark
+    public int staticReflectiveGetterVar() {
+        try {
+            return (int) staticFieldVar.get(null);
+        } catch (IllegalAccessException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Benchmark
+    public int instanceReflectiveGetterVar() {
+        try {
+            return (int) instanceFieldVar.get(this);
+        } catch (IllegalAccessException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Benchmark
+    public void staticReflectiveSetterVar() {
+        try {
+            staticFieldVar.setInt(null, 10);
+        } catch (IllegalAccessException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    @Benchmark
+    public void instanceReflectiveSetterVar() {
+        try {
+            instanceFieldVar.setInt(this, 20);
+        } catch (IllegalAccessException e) {
             throw new AssertionError(e);
         }
     }
