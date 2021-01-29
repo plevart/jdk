@@ -60,6 +60,7 @@ import java.util.stream.Stream;
 import static java.lang.invoke.LambdaForm.*;
 import static java.lang.invoke.MethodHandleStatics.*;
 import static java.lang.invoke.MethodHandles.Lookup.IMPL_LOOKUP;
+import static java.lang.invoke.MethodHandles.Lookup.ClassOption.NESTMATE;
 import static jdk.internal.org.objectweb.asm.Opcodes.*;
 
 /**
@@ -1146,9 +1147,10 @@ abstract class MethodHandleImpl {
             try {
                 Object cd = MethodHandles.classData(lookup, ConstantDescs.DEFAULT_NAME, Object.class);
                 if (cd instanceof Class c) {
-                    // System.out.println(c + " invoker " + invoker);
-                    if (invoker.getModule() == c.getModule() &&
-                            invoker.getName().startsWith(c.getName() + BindCaller.INVOKER_SUFFIX)) {
+                    // If a hidden class matching the injected invoker name but not injected
+                    // by BindCaller calls MethodHandles.lookup(), then it pays extra overhead
+                    // as an injected invoker class is defined but unused.
+                    if (invoker.isNestmateOf(c) && BindCaller.CV_makeInjectedInvoker.get(c) == invoker) {
                         return c;
                     }
                 }
@@ -1177,13 +1179,17 @@ abstract class MethodHandleImpl {
             }
             // For simplicity, convert mh to a varargs-like method.
             MethodHandle vamh = prepareForInvoker(mh);
-            // Cache the result of makeInjectedInvoker once per argument class.
-            MethodHandle bccInvoker = CV_makeInjectedInvoker.get(hostClass);
-            return restoreToType(bccInvoker.bindTo(vamh), mh, hostClass);
+            try {
+                // Cache the result of makeInjectedInvoker once per argument class.
+                Class<?> invokerClass = CV_makeInjectedInvoker.get(hostClass);
+                MethodHandle bccInvoker = IMPL_LOOKUP.findStatic(invokerClass, "invoke_V", INVOKER_MT);
+                return restoreToType(bccInvoker.bindTo(vamh), mh, hostClass);
+            } catch (ReflectiveOperationException ex) {
+                throw uncaughtException(ex);
+            }
         }
 
-        private static MethodHandle makeInjectedInvoker(Class<?> targetClass) {
-            try {
+        private static Class<?> makeInjectedInvoker(Class<?> targetClass) {
                 /*
                  * The invoker class defined to the same class loader as the lookup class
                  * but in an unnamed package so that the class bytes can be cached and
@@ -1197,17 +1203,14 @@ abstract class MethodHandleImpl {
                     name = name.replace('/', '_');
                 }
                 Class<?> invokerClass = new Lookup(targetClass)
-                        .makeHiddenClassDefiner(name, INJECTED_INVOKER_TEMPLATE, Set.of(Lookup.ClassOption.NESTMATE))
+                        .makeHiddenClassDefiner(name, INJECTED_INVOKER_TEMPLATE, Set.of(NESTMATE))
                         .defineClass(true, targetClass);
                 assert checkInjectedInvoker(targetClass, invokerClass);
-                return IMPL_LOOKUP.findStatic(invokerClass, "invoke_V", INVOKER_MT);
-            } catch (ReflectiveOperationException ex) {
-                throw uncaughtException(ex);
-            }
+                return invokerClass;
         }
 
-        private static ClassValue<MethodHandle> CV_makeInjectedInvoker = new ClassValue<MethodHandle>() {
-            @Override protected MethodHandle computeValue(Class<?> hostClass) {
+        private static ClassValue<Class<?>> CV_makeInjectedInvoker = new ClassValue<Class<?>>() {
+            @Override protected Class<?> computeValue(Class<?> hostClass) {
                 return makeInjectedInvoker(hostClass);
             }
         };
