@@ -188,12 +188,12 @@ final class MethodHandleAccessorFactory {
         int paramCount = dmh.type().parameterCount();
         if (isStatic) {
             // static method
-            MethodHandle spreader = target.asSpreader(0, Object[].class, paramCount);
+            MethodHandle spreader = target.asSpreader(Object[].class, paramCount);
             spreader = MethodHandles.dropArguments(spreader, 0, Object.class);
             target = spreader.asType(methodType(Object.class, Object.class, Object[].class));
         } else {
             // instance method
-            MethodHandle spreader = target.asSpreader(1, Object[].class, paramCount - 1);
+            MethodHandle spreader = target.asSpreader(Object[].class, paramCount - 1);
             target = spreader.asType(methodType(Object.class, Object.class, Object[].class));
         }
         return new DirectMethodAccessorImpl(target);
