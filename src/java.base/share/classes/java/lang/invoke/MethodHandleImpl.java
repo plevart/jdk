@@ -58,6 +58,8 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.lang.invoke.LambdaForm.*;
+import static java.lang.invoke.MethodHandleNatives.Constants.REF_invokeInterface;
+import static java.lang.invoke.MethodHandleNatives.Constants.REF_invokeVirtual;
 import static java.lang.invoke.MethodHandleStatics.*;
 import static java.lang.invoke.MethodHandles.Lookup.IMPL_LOOKUP;
 import static java.lang.invoke.MethodHandles.Lookup.ClassOption.NESTMATE;
@@ -1133,23 +1135,23 @@ abstract class MethodHandleImpl {
     }
 
     /*
-     * If the given invoker class is a hidden InjectedInvoker class,
-     * this method returns the class that is stored as the class data of
-     * the injected invoker class which is the lookup class bound to
-     * the method handle for a caller-sensitive method at lookup time.
-     * This injected invoker class has the same defining class loader,
-     * runtime package, and protection domain as the lookup class that
-     * looks up the caller-sensitive method.
+     * Returns the original caller class bound to a caller-sensitive
+     * method if the given class is an injected invoker; otherwise
+     * this method returns null.
+     *
+     * An injected invoker class is a hidden class which has the same
+     * defining class loader, runtime package, and protection domain
+     * as the lookup class that looks up the caller-sensitive method.
      */
-    static Class<?> boundCallerOrNull(Class<?> invoker) {
+    static Class<?> originalCallerBoundToInvoker(Class<?> invoker) {
         if (invoker.isHidden() && invoker.getName().contains(BindCaller.INVOKER_SUFFIX)) {
             Lookup lookup = new Lookup(invoker);
             try {
                 Object cd = MethodHandles.classData(lookup, ConstantDescs.DEFAULT_NAME, Object.class);
                 if (cd instanceof Class c) {
                     // If a hidden class matching the injected invoker name but not injected
-                    // by BindCaller calls MethodHandles.lookup(), then it pays extra overhead
-                    // as an injected invoker class is defined but unused.
+                    // by BindCaller calls MethodHandles.lookup(), then an invoker class
+                    // will be defined but unused. This should be rare case.
                     if (invoker.isNestmateOf(c) && BindCaller.CV_makeInjectedInvoker.get(c) == invoker) {
                         return c;
                     }
@@ -1177,16 +1179,46 @@ abstract class MethodHandleImpl {
                        /* hostClass.getName().startsWith("java.lang.invoke.") */)) {
                 throw new InternalError();  // does not happen, and should not anyway
             }
-            // For simplicity, convert mh to a varargs-like method.
-            MethodHandle vamh = prepareForInvoker(mh);
+
+            MemberName member = mh.internalMemberName();
+            if (member != null) {
+                // Look up the alternate non-CSM method named "reflected$<method-name>"
+                // with an additional trailing caller class parameter.  If present,
+                // bind the alternate method handle with the lookup class as
+                // the caller class argument
+                MemberName alt = IMPL_LOOKUP.resolveOrNull(member.getReferenceKind(),
+                        new MemberName(member.getDeclaringClass(),
+                                       "reflected$" + member.getName(),
+                                       member.getMethodType().appendParameterTypes(Class.class),
+                                       member.getReferenceKind()));
+                if (alt != null) {
+                    assert !alt.isCallerSensitive();
+                    MethodHandle dmh = DirectMethodHandle.make(alt);
+                    dmh = MethodHandles.insertArguments(dmh, dmh.type().parameterCount() - 1, hostClass);
+                    dmh = new WrappedMember(dmh, mh.type(), member, mh.isInvokeSpecial(), hostClass);
+                    return dmh;
+                }
+            }
+
+            // If no alternate method for CSM with an additional trailing Class
+            // parameter is present, then inject an invoker class that is the caller
+            // invoking the method handle of the CSM
             try {
-                // Cache the result of makeInjectedInvoker once per argument class.
-                Class<?> invokerClass = CV_makeInjectedInvoker.get(hostClass);
-                MethodHandle bccInvoker = IMPL_LOOKUP.findStatic(invokerClass, "invoke_V", INVOKER_MT);
-                return restoreToType(bccInvoker.bindTo(vamh), mh, hostClass);
+                return bindCallerWithInjectedInvoker(mh, hostClass);
             } catch (ReflectiveOperationException ex) {
                 throw uncaughtException(ex);
             }
+        }
+
+        private static MethodHandle bindCallerWithInjectedInvoker(MethodHandle mh, Class<?> hostClass)
+                throws ReflectiveOperationException
+        {
+            // For simplicity, convert mh to a varargs-like method.
+            MethodHandle vamh = prepareForInvoker(mh);
+            // Cache the result of makeInjectedInvoker once per argument class.
+            Class<?> invokerClass = CV_makeInjectedInvoker.get(hostClass);
+            MethodHandle bccInvoker = IMPL_LOOKUP.findStatic(invokerClass, "invoke_V", INVOKER_MT);
+            return restoreToType(bccInvoker.bindTo(vamh), mh, hostClass);
         }
 
         private static Class<?> makeInjectedInvoker(Class<?> targetClass) {
@@ -1808,18 +1840,36 @@ abstract class MethodHandleImpl {
             }
 
             @Override
-            public MethodHandle unreflectMethod(Class<?> caller, Method method) throws IllegalAccessException {
-                return MethodHandles.unreflect(caller, method);
-            }
-
-            @Override
             public MethodHandle unreflectConstructor(Constructor<?> ctor) throws IllegalAccessException {
-                return MethodHandles.unreflectConstructor(ctor);
+                return IMPL_LOOKUP.unreflectConstructor(ctor);
             }
 
             @Override
             public MethodHandle unreflectField(Field field, boolean isSetter) throws IllegalAccessException {
-                return MethodHandles.unreflectField(field, isSetter);
+                return isSetter ? IMPL_LOOKUP.unreflectSetter(field) : IMPL_LOOKUP.unreflectGetter(field);
+            }
+
+            @Override
+            public MethodHandle rebindCaller(Class<?> caller,  MethodHandle mh) throws IllegalAccessException {
+                return MethodHandles.rebindCaller(caller, mh);
+            }
+
+            @Override
+            public MethodHandle findVirtual(Class<?> defc, String name, MethodType type) throws IllegalAccessException {
+                try {
+                    return IMPL_LOOKUP.findVirtual(defc, name, type);
+                } catch (NoSuchMethodException e) {
+                    return null;
+                }
+            }
+
+            @Override
+            public MethodHandle findStatic(Class<?> defc, String name, MethodType type) throws IllegalAccessException {
+                try {
+                    return IMPL_LOOKUP.findStatic(defc, name, type);
+                } catch (NoSuchMethodException e) {
+                    return null;
+                }
             }
 
             @Override

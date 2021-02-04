@@ -115,7 +115,8 @@ public class MethodHandles {
     @CallerSensitive
     @ForceInline // to ensure Reflection.getCallerClass optimization
     public static Lookup lookup() {
-        return newLookupforCaller(Reflection.getCallerClass());
+        Class<?> caller = Reflection.getCallerClass();
+        return new Lookup(caller);
     }
 
     /**
@@ -128,61 +129,41 @@ public class MethodHandles {
         if (caller.getClassLoader() == null) {
             throw newIllegalArgumentException("illegal lookupClass: "+caller);
         }
-        return newLookupforCaller(caller);
+        // find the original caller if the caller is an injected invoker
+        // i.e. MethodHandles::lookup is called via Method::invoke which is
+        // invoked via MethodHandle
+        Class<?> originalCaller = MethodHandleImpl.originalCallerBoundToInvoker(caller);
+        return originalCaller != null ? new Lookup(originalCaller) : new Lookup(caller);
     }
 
-    private static Lookup newLookupforCaller(Class<?> caller) {
-        /*
-         * Fixup the caller class if MethodHandles::lookup is called via MethodHandle.
-         * For caller-sensitive methods, the caller class returned from
-         * Reflection::getCallerClass is a hidden InjectedInvoker class which
-         * is injected as the caller class invoking a caller-sensitive method
-         * such that its defining class loader, its runtime package, and its
-         * protection domain is the same as the lookup class that looks up
-         * the caller-sensitive method.
-         */
-        if (caller.isHidden()) {
-            Class<?> c = MethodHandleImpl.boundCallerOrNull(caller);
-            if (c != null) {
-                caller = c;
-            }
-        }
-
+    /**
+     * This reflected$lookup method is the alternate implementation of
+     * the lookup method with a trailing caller class argument which is
+     * non-caller-sensitive.
+     */
+    private static Lookup reflected$lookup(Class<?> caller) {
         return new Lookup(caller);
     }
 
-    /**
-     * Makes a direct method handle to the given method on behalf of the given
-     * caller class.
-     *
-     * @param caller the caller class
-     * @param method the reflected method
-     * @return a method handle which can invoke the reflected method
-     */
-    static MethodHandle unreflect(Class<?> caller, Method method) throws IllegalAccessException {
+    static MethodHandle rebindCaller(Class<?> caller, MethodHandle target) throws IllegalAccessException {
+        MemberName member = target.internalMemberName();
+        if (member == null || !MethodHandleNatives.isCallerSensitive(member))
+            throw newIllegalArgumentException("must be caller-sensitive method: " + member);
+
+        Class<?> defc = member.getDeclaringClass();
+        byte refKind = member.getReferenceKind();
+        assert(MethodHandleNatives.refKindIsValid(refKind));
+        if (refKind == REF_invokeSpecial && !target.isInvokeSpecial())
+            // Devirtualized method invocation is usually formally virtual.
+            // To avoid creating extra MemberName objects for this common case,
+            // we encode this extra degree of freedom using MH.isInvokeSpecial.
+            refKind = REF_invokeVirtual;
+        if (refKind == REF_invokeVirtual && defc.isInterface())
+            // Symbolic reference is through interface but resolves to Object method (toString, etc.)
+            refKind = REF_invokeInterface;
+
         Lookup lookup = new Lookup(caller);
-        return lookup.unreflect(method);
-    }
-
-    /**
-     * Makes a direct method handle to the given constructor.
-     *
-     * @param ctor the reflected constructor
-     * @return a method handle which can invoke the reflected constructor
-     */
-    static MethodHandle unreflectConstructor(Constructor<?> ctor) throws IllegalAccessException {
-        return Lookup.IMPL_LOOKUP.unreflectConstructor(ctor);
-    }
-
-    /**
-     * Makes a direct method handle to the given field.
-     *
-     * @param field the reflected field
-     * @param isSetter setter
-     * @return a method handle which can invoke the reflected field
-     */
-    static MethodHandle unreflectField(Field field, boolean isSetter) throws IllegalAccessException {
-        return Lookup.IMPL_LOOKUP.unreflectField(field, isSetter);
+        return lookup.getDirectMethodNoSecurityManager(refKind, defc, member, lookup);
     }
 
     /**

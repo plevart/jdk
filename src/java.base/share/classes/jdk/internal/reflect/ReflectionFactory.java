@@ -207,10 +207,8 @@ public class ReflectionFactory {
             method = root;
         }
 
-        if (!method.getDeclaringClass().isHidden()
-                && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass())) {
-            if (VM.isModuleSystemInited() || noInflation)
-                return createMethodAccessor(method);
+        if ((VM.isModuleSystemInited() || noInflation) && supportsNonNativeImplementation(method)) {
+            return createMethodAccessor(method);
         }
         NativeMethodAccessorImpl acc = new NativeMethodAccessorImpl(method);
         DelegatingMethodAccessorImpl res = new DelegatingMethodAccessorImpl(acc);
@@ -219,12 +217,12 @@ public class ReflectionFactory {
     }
 
     static MethodAccessor createMethodAccessor(Method method) {
-        assert !method.getDeclaringClass().isHidden()
-                    && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass());
         if (useDirectMethodHandle) {
             assert VM.isModuleSystemInited();
             return MethodHandleAccessorFactory.newMethodAccessor(method);
         } else {
+            assert !method.getDeclaringClass().isHidden() &&
+                      !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass());
             return new MethodAccessorGenerator().generateMethod(method.getDeclaringClass(),
                                                                 method.getName(),
                                                                 method.getParameterTypes(),
@@ -232,6 +230,21 @@ public class ReflectionFactory {
                                                                 method.getExceptionTypes(),
                                                                 method.getModifiers());
         }
+    }
+
+    /**
+     * Returns true if the given method can be implemented using non-native
+     * implementation.  It uses direct method handle implementation once
+     * the module system is initialized.
+     *
+     * If direct method handle is disabled, then use the old inflation
+     * mechanism and the bytecode implemenation only supports the method
+     * that are declared in a normal class, not hidden class and VM anonymous class.
+     */
+    static boolean supportsNonNativeImplementation(Method method) {
+        Class<?> c = method.getDeclaringClass();
+        return (VM.isModuleSystemInited() && useDirectMethodHandle) ||
+                    (!c.isHidden() && !ReflectUtil.isVMAnonymousClass(c));
     }
 
     public ConstructorAccessor newConstructorAccessor(Constructor<?> c) {
