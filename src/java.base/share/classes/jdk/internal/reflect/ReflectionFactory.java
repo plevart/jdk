@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2020, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2001, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -46,7 +46,6 @@ import java.util.Properties;
 import jdk.internal.access.JavaLangReflectAccess;
 import jdk.internal.access.SharedSecrets;
 import jdk.internal.misc.VM;
-import sun.reflect.misc.ReflectUtil;
 import sun.security.action.GetPropertyAction;
 import sun.security.util.SecurityConstants;
 
@@ -184,8 +183,8 @@ public class ReflectionFactory {
         }
         boolean isFinal = Modifier.isFinal(field.getModifiers());
         boolean isReadOnly = isFinal && (!override || langReflectAccess.isTrustedFinalField(field));
-        if (VM.isModuleSystemInited()) {
-            return MethodHandleAccessorFactory.newFieldAccessor(field, isReadOnly);
+        if (VM.isModuleSystemInited() && useDirectMethodHandle) {
+           return MethodHandleAccessorFactory.newFieldAccessor(field, isReadOnly);
         } else {
             return UnsafeFieldAccessorFactory.newFieldAccessor(field, isReadOnly);
         }
@@ -207,44 +206,14 @@ public class ReflectionFactory {
             method = root;
         }
 
-        if ((VM.isModuleSystemInited() || noInflation) && supportsNonNativeImplementation(method)) {
-            return createMethodAccessor(method);
-        }
-        NativeMethodAccessorImpl acc = new NativeMethodAccessorImpl(method);
-        DelegatingMethodAccessorImpl res = new DelegatingMethodAccessorImpl(acc);
-        acc.setParent(res);
-        return res;
-    }
-
-    static MethodAccessor createMethodAccessor(Method method) {
-        if (useDirectMethodHandle) {
-            assert VM.isModuleSystemInited();
+        if (VM.isModuleSystemInited() && (useDirectMethodHandle || noInflation)) {
             return MethodHandleAccessorFactory.newMethodAccessor(method);
         } else {
-            assert !method.getDeclaringClass().isHidden() &&
-                      !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass());
-            return new MethodAccessorGenerator().generateMethod(method.getDeclaringClass(),
-                                                                method.getName(),
-                                                                method.getParameterTypes(),
-                                                                method.getReturnType(),
-                                                                method.getExceptionTypes(),
-                                                                method.getModifiers());
+            NativeMethodAccessorImpl acc = new NativeMethodAccessorImpl(method);
+            DelegatingMethodAccessorImpl res = new DelegatingMethodAccessorImpl(acc);
+            acc.setParent(res);
+            return res;
         }
-    }
-
-    /**
-     * Returns true if the given method can be implemented using non-native
-     * implementation.  It uses direct method handle implementation once
-     * the module system is initialized.
-     *
-     * If direct method handle is disabled, then use the old inflation
-     * mechanism and the bytecode implemenation only supports the method
-     * that are declared in a normal class, not hidden class and VM anonymous class.
-     */
-    static boolean supportsNonNativeImplementation(Method method) {
-        Class<?> c = method.getDeclaringClass();
-        return (VM.isModuleSystemInited() && useDirectMethodHandle) ||
-                    (!c.isHidden() && !ReflectUtil.isVMAnonymousClass(c));
     }
 
     public ConstructorAccessor newConstructorAccessor(Constructor<?> c) {
@@ -265,38 +234,13 @@ public class ReflectionFactory {
             c = root;
         }
 
-        // Bootstrapping issue: since we use Class.newInstance() in
-        // the ConstructorAccessor generation process, we have to
-        // break the cycle here.
-        if (Reflection.isSubclassOf(declaringClass,
-                                    ConstructorAccessorImpl.class)) {
-            return new BootstrapConstructorAccessorImpl(c);
-        }
-
-        if (!c.getDeclaringClass().isHidden()
-                && !ReflectUtil.isVMAnonymousClass(c.getDeclaringClass())) {
-            if (VM.isModuleSystemInited() || noInflation)
-                return createConstructorAccessor(c);
-        }
-
-        NativeConstructorAccessorImpl acc = new NativeConstructorAccessorImpl(c);
-        DelegatingConstructorAccessorImpl res = new DelegatingConstructorAccessorImpl(acc);
-        acc.setParent(res);
-        return res;
-    }
-
-    static ConstructorAccessor createConstructorAccessor(Constructor<?> c) {
-        assert !c.getDeclaringClass().isHidden()
-                && !ReflectUtil.isVMAnonymousClass(c.getDeclaringClass());
-
-        if (useDirectMethodHandle) {
-            assert VM.isModuleSystemInited();
+        if (VM.isModuleSystemInited() && (useDirectMethodHandle || noInflation)) {
             return MethodHandleAccessorFactory.newConstructorAccessor(c);
         } else {
-            return new MethodAccessorGenerator().generateConstructor(c.getDeclaringClass(),
-                                                                     c.getParameterTypes(),
-                                                                     c.getExceptionTypes(),
-                                                                     c.getModifiers());
+            NativeConstructorAccessorImpl acc = new NativeConstructorAccessorImpl(c);
+            DelegatingConstructorAccessorImpl res = new DelegatingConstructorAccessorImpl(acc);
+            acc.setParent(res);
+            return res;
         }
     }
 
@@ -700,7 +644,6 @@ public class ReflectionFactory {
                 throw new RuntimeException("Unable to parse property sun.reflect.inflationThreshold", e);
             }
         }
-
         val = props.getProperty("jdk.reflect.useDirectMethodHandle");
         if (val != null && val.equals("false")) {
             useDirectMethodHandle = false;

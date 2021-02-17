@@ -46,20 +46,22 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
         } catch (IllegalArgumentException | InvocationTargetException e) {
             throw e;
         } catch (ClassCastException | NullPointerException e) {
-            throw new IllegalArgumentException(e.getMessage(), e);
+            throw new IllegalArgumentException("argument type mismatch", e);
         } catch (Throwable e) {
             throw new InvocationTargetException(e);
         }
     }
 
+
     @Override
+    @ForceInline
     public Object invoke(Class<?> caller, Object obj, Object[] args) throws InvocationTargetException {
         try {
             return target.invokeExact(obj, args, caller);
         } catch (IllegalArgumentException | InvocationTargetException e) {
             throw e;
         } catch (ClassCastException | NullPointerException e) {
-            throw new IllegalArgumentException(e.getMessage(), e);
+            throw new IllegalArgumentException("argument type mismatch", e);
         } catch (Throwable e) {
             throw new InvocationTargetException(e);
         }
@@ -73,7 +75,7 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
             this.modifiers = modifiers;
         }
 
-
+        @Override
         public Object invoke(Object obj, Object[] args) throws InvocationTargetException {
             throw new InternalError("caller-sensitive method: " + target);
         }
@@ -102,6 +104,7 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
          * at most once.
          */
         @Override
+        @ForceInline
         public Object invoke(Class<?> caller, Object obj, Object[] args)
                 throws IllegalArgumentException, InvocationTargetException {
             try {
@@ -110,7 +113,7 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
             } catch (IllegalArgumentException | InvocationTargetException e) {
                 throw e;
             } catch (ClassCastException | NullPointerException e) {
-                throw new IllegalArgumentException(e.getMessage(), e);
+                throw new IllegalArgumentException("argument type mismatch", e);
             } catch (Throwable e) {
                 throw new InvocationTargetException(e);
             }
