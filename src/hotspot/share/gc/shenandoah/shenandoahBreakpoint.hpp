@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2018, 2019, Red Hat, Inc. All rights reserved.
+ * Copyright (c) 2021, Red Hat, Inc. All rights reserved.
+ * Copyright (c) 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,20 +23,22 @@
  *
  */
 
-#ifndef SHARE_GC_SHENANDOAH_SHENANDOAHHEAPREGIONSET_INLINE_HPP
-#define SHARE_GC_SHENANDOAH_SHENANDOAHHEAPREGIONSET_INLINE_HPP
+#ifndef SHARE_GC_SHENANDOAH_SHENANDOAHBREAKPOINT_HPP
+#define SHARE_GC_SHENANDOAH_SHENANDOAHBREAKPOINT_HPP
 
-#include "gc/shenandoah/shenandoahHeapRegionSet.hpp"
-#include "gc/shenandoah/shenandoahHeap.hpp"
-#include "gc/shenandoah/shenandoahHeapRegion.hpp"
+#include "memory/allocation.hpp"
 
-bool ShenandoahHeapRegionSet::is_in(size_t region_idx) const {
-  assert(region_idx < _heap->num_regions(), "Sanity");
-  return _set_map[region_idx] == 1;
-}
+class ShenandoahBreakpoint : public AllStatic {
+private:
+  static bool _start_gc;
 
-bool ShenandoahHeapRegionSet::is_in(ShenandoahHeapRegion* r) const {
-  return is_in(r->index());
-}
+public:
+  static void start_gc();
 
-#endif // SHARE_GC_SHENANDOAH_SHENANDOAHHEAPREGIONSET_INLINE_HPP
+  static void at_before_gc();
+  static void at_after_gc();
+  static void at_after_marking_started();
+  static void at_before_marking_completed();
+  static void at_after_reference_processing_started();
+};
+#endif // SHARE_GC_SHENANDOAH_SHENANDOAHBREAKPOINT_HPP
