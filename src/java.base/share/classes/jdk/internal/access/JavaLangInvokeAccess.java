@@ -141,4 +141,6 @@ public interface JavaLangInvokeAccess {
     MethodHandle rebindCaller(Class<?> caller, MethodHandle mh) throws IllegalAccessException;
     MethodHandle findVirtual(Class<?> defc, String name, MethodType type) throws IllegalAccessException;
     MethodHandle findStatic(Class<?> defc, String name, MethodType type) throws IllegalAccessException;
+
+    Class<?> originalCaller(Class<?> caller);
 }

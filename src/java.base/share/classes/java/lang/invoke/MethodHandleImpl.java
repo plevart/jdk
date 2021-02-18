@@ -1143,16 +1143,16 @@ abstract class MethodHandleImpl {
      * defining class loader, runtime package, and protection domain
      * as the lookup class that looks up the caller-sensitive method.
      */
-    static Class<?> originalCallerBoundToInvoker(Class<?> invoker) {
-        if (invoker.isHidden() && invoker.getName().contains(BindCaller.INVOKER_SUFFIX)) {
-            Lookup lookup = new Lookup(invoker);
+    static Class<?> originalCallerBoundToInvoker(Class<?> caller) {
+        if (caller.isHidden() && caller.getName().contains(BindCaller.INVOKER_SUFFIX)) {
+            Lookup lookup = new Lookup(caller);
             try {
                 Object cd = MethodHandles.classData(lookup, ConstantDescs.DEFAULT_NAME, Object.class);
                 if (cd instanceof Class c) {
                     // If a hidden class matching the injected invoker name but not injected
                     // by BindCaller calls MethodHandles.lookup(), then an invoker class
                     // will be defined but unused. This should be rare case.
-                    if (invoker.isNestmateOf(c) && BindCaller.CV_makeInjectedInvoker.get(c) == invoker) {
+                    if (caller.isNestmateOf(c) && BindCaller.CV_makeInjectedInvoker.get(c) == caller) {
                         return c;
                     }
                 }
@@ -1870,6 +1870,11 @@ abstract class MethodHandleImpl {
                 } catch (NoSuchMethodException e) {
                     return null;
                 }
+            }
+
+            @Override
+            public Class<?> originalCaller(Class<?> caller) {
+                return MethodHandleImpl.originalCallerBoundToInvoker(caller);
             }
 
             @Override

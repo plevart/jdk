@@ -41,6 +41,7 @@ import java.lang.reflect.Modifier;
 import static java.lang.invoke.MethodType.methodType;
 
 final class MethodHandleAccessorFactory {
+    private static final MethodType METHOD_INVOKE_TYPE = methodType(Object.class, Object.class, Object[].class);
 
     static MethodAccessorImpl newMethodAccessor(Method method) {
         try {
@@ -62,11 +63,11 @@ final class MethodHandleAccessorFactory {
             MethodHandle mh = JLIA.unreflectConstructor(ctor);
             int paramCount = mh.type().parameterCount();
 
+            MethodHandle target = mh.asType(mh.type().changeReturnType(Object.class));
             // invoke method with an exception handler that throws InvocationTargetException
-            mh = MethodHandles.catchException(mh, Throwable.class,
-                                              WRAP.asType(methodType(mh.type().returnType(), Throwable.class)));
-            MethodHandle target = mh.asSpreader(Object[].class, paramCount)
-                                    .asType(methodType(Object.class, Object[].class));
+            target = MethodHandles.catchException(target, Throwable.class, WRAP);
+            target = target.asSpreader(Object[].class, paramCount)
+                           .asType(methodType(Object.class, Object[].class));
             return new DirectConstructorAccessorImpl(ctor, target);
         } catch (IllegalAccessException e) {
             throw new InternalError(e);
@@ -112,13 +113,26 @@ final class MethodHandleAccessorFactory {
         }
     }
 
-    static MethodHandle rebindCaller(Class<?> caller, MethodHandle mh, int modifiers) throws IllegalAccessException {
-        MethodHandle dmh = JLIA.rebindCaller(caller, mh);
-        return makeTarget(dmh, modifiers);
+    static MethodHandle rebindCaller(Class<?> caller, MethodHandle mh) throws IllegalAccessException {
+        return JLIA.rebindCaller(caller, mh);
+    }
+
+    private static DirectMethodAccessorImpl findMethod(Method method) throws IllegalAccessException {
+        MethodType mtype = methodType(method.getReturnType(), method.getParameterTypes());
+        int modifiers = method.getModifiers();
+        MethodHandle dmh = Modifier.isStatic(modifiers)
+                                ? JLIA.findStatic(method.getDeclaringClass(), method.getName(), mtype)
+                                : JLIA.findVirtual(method.getDeclaringClass(), method.getName(), mtype);
+
+        if (Reflection.isCallerSensitive(method)) {
+            return new CallerSensitiveMethodAccessorImpl(dmh, modifiers, false);
+        } else {
+            return new DirectMethodAccessorImpl(makeTarget(dmh, modifiers), modifiers);
+        }
     }
 
     private static DirectMethodAccessorImpl findMethodWithTrailingCaller(Method method) throws IllegalAccessException {
-        MethodType mtype = MethodType.methodType(method.getReturnType(), method.getParameterTypes());
+        MethodType mtype = methodType(method.getReturnType(), method.getParameterTypes());
         mtype = mtype.appendParameterTypes(Class.class);
 
         String name;
@@ -127,62 +141,32 @@ final class MethodHandleAccessorFactory {
         } else {
             name = "reflected$" + method.getName();
         }
-        boolean isStatic = Modifier.isStatic(method.getModifiers());
-        MethodHandle dmh = isStatic ? JLIA.findStatic(method.getDeclaringClass(), name, mtype)
-                                    : JLIA.findVirtual(method.getDeclaringClass(), name, mtype);
-        if (dmh == null) {
-            return null;
-        }
-
-        // invoke method with an exception handler that throws InvocationTargetException
-        MethodHandle target = MethodHandles.catchException(dmh, Throwable.class,
-                WRAP.asType(methodType(dmh.type().returnType(), Throwable.class)));
-        int paramCount = dmh.type().parameterCount() - 1;
-        if (isStatic) {
-            // static method
-            MethodHandle spreader = target.asSpreader(0, Object[].class, paramCount);
-            spreader = MethodHandles.dropArguments(spreader, 0, Object.class);
-            target = spreader.asType(methodType(Object.class, Object.class, Object[].class, Class.class));
-        } else {
-            // instance method
-            MethodHandle spreader = target.asSpreader(1, Object[].class, paramCount - 1);
-            target = spreader.asType(methodType(Object.class, Object.class, Object[].class, Class.class));
-        }
-        return new DirectMethodAccessorImpl(target);
-    }
-
-    private static DirectMethodAccessorImpl findMethod(Method method) throws IllegalAccessException {
-        MethodType mtype = MethodType.methodType(method.getReturnType(), method.getParameterTypes());
         int modifiers = method.getModifiers();
         MethodHandle dmh = Modifier.isStatic(modifiers)
-                ? JLIA.findStatic(method.getDeclaringClass(), method.getName(), mtype)
-                : JLIA.findVirtual(method.getDeclaringClass(), method.getName(), mtype);
-
-        if (Reflection.isCallerSensitive(method)) {
-            return new CallerSensitiveMethodAccessorImpl(dmh, modifiers);
-        }
-
-        return new DirectMethodAccessorImpl(makeTarget(dmh, method.getModifiers()));
+                                ? JLIA.findStatic(method.getDeclaringClass(), name, mtype)
+                                : JLIA.findVirtual(method.getDeclaringClass(), name, mtype);
+        return dmh != null ? new CallerSensitiveMethodAccessorImpl(dmh, modifiers, true) : null;
     }
 
-    private static MethodHandle makeTarget(MethodHandle dmh,  int modifiers) {
-        MethodType methodType = methodType(Object.class, Object.class, Object[].class);
+    static MethodHandle makeTarget(MethodHandle dmh,  int modifiers) {
+        // TODO: memory leak if we did this.
+        // WRAP::asType caches the return type in MethodHandle::asTypeCache
+        // MethodHandle target = MethodHandles.catchException(dmh, Throwable.class,
+        //                        WRAP.asType(methodType(dmh.type().returnType(), Throwable.class)));
 
         // invoke method with an exception handler that throws InvocationTargetException
-        MethodHandle target = MethodHandles.catchException(dmh, Throwable.class,
-                WRAP.asType(methodType(dmh.type().returnType(), Throwable.class)));
+        MethodHandle target = dmh.asType(dmh.type().changeReturnType(Object.class));
+        target = MethodHandles.catchException(target, Throwable.class, WRAP);
         int paramCount = dmh.type().parameterCount();
         if (Modifier.isStatic(modifiers)) {
             // static method
             MethodHandle spreader = target.asSpreader(Object[].class, paramCount);
-            spreader = MethodHandles.dropArguments(spreader, 0, Object.class);
-            target = spreader.asType(methodType);
+            target = MethodHandles.dropArguments(spreader, 0, Object.class);
         } else {
             // instance method
-            MethodHandle spreader = target.asSpreader(Object[].class, paramCount - 1);
-            target = spreader.asType(methodType);
+            target = target.asSpreader(Object[].class, paramCount - 1);
         }
-        return target;
+        return target.asType(METHOD_INVOKE_TYPE);
     }
 
     // make this package-private to workaround a bug in Reflection::getCallerClass

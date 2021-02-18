@@ -28,14 +28,17 @@ package jdk.internal.reflect;
 import jdk.internal.vm.annotation.ForceInline;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 
 class DirectMethodAccessorImpl extends MethodAccessorImpl {
     protected final MethodHandle target;      // target method handle
+    protected final int modifiers;
 
-    DirectMethodAccessorImpl(MethodHandle target) {
+    DirectMethodAccessorImpl(MethodHandle target, int modifiers) {
         this.target = target;
+        this.modifiers = modifiers;
     }
 
     @Override
@@ -52,27 +55,12 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
         }
     }
 
-
-    @Override
-    @ForceInline
-    public Object invoke(Class<?> caller, Object obj, Object[] args) throws InvocationTargetException {
-        try {
-            return target.invokeExact(obj, args, caller);
-        } catch (IllegalArgumentException | InvocationTargetException e) {
-            throw e;
-        } catch (ClassCastException | NullPointerException e) {
-            throw new IllegalArgumentException("argument type mismatch", e);
-        } catch (Throwable e) {
-            throw new InvocationTargetException(e);
-        }
-    }
-
     static class CallerSensitiveMethodAccessorImpl extends DirectMethodAccessorImpl {
         private volatile Cache csmCache;
-        final int modifiers;
-        CallerSensitiveMethodAccessorImpl(MethodHandle original, int modifiers) {
-            super(original);
-            this.modifiers = modifiers;
+        private final boolean hasTrailingCallerArgument;
+        CallerSensitiveMethodAccessorImpl(MethodHandle original, int modifiers, boolean hasTrailingCallerArgument) {
+            super(original, modifiers);
+            this.hasTrailingCallerArgument = hasTrailingCallerArgument;
         }
 
         @Override
@@ -108,7 +96,7 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
         public Object invoke(Class<?> caller, Object obj, Object[] args)
                 throws IllegalArgumentException, InvocationTargetException {
             try {
-                MethodHandle dmh = bindTargetWithCaller(caller);
+                MethodHandle dmh = bindCaller(target, caller);
                 return dmh.invokeExact(obj, args);
             } catch (IllegalArgumentException | InvocationTargetException e) {
                 throw e;
@@ -119,12 +107,18 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
             }
         }
 
-        private MethodHandle bindTargetWithCaller(Class<?> caller) {
+        private MethodHandle bindCaller(MethodHandle original, Class<?> caller) {
             // direct method handle to the caller-sensitive method invoked by the given caller
             MethodHandle dmh = csmCache != null ? csmCache.methodHandle(caller) : null;
             if (dmh == null) {
                 try {
-                    dmh = MethodHandleAccessorFactory.rebindCaller(caller, target, modifiers);
+                    if (hasTrailingCallerArgument) {
+                        dmh = MethodHandles.insertArguments(original, original.type().parameterCount() - 1, caller);
+                    } else {
+                        dmh = MethodHandleAccessorFactory.rebindCaller(caller, original);
+                    }
+                    dmh = MethodHandleAccessorFactory.makeTarget(dmh, modifiers);
+
                     // push MH into cache
                     csmCache = new Cache(caller, dmh);
                 } catch (IllegalAccessException e) {
@@ -132,6 +126,7 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
                 }
             }
             return dmh;
+
         }
 
         static class Cache {

@@ -46,6 +46,7 @@ import java.util.Properties;
 import jdk.internal.access.JavaLangReflectAccess;
 import jdk.internal.access.SharedSecrets;
 import jdk.internal.misc.VM;
+import sun.reflect.misc.ReflectUtil;
 import sun.security.action.GetPropertyAction;
 import sun.security.util.SecurityConstants;
 
@@ -183,7 +184,7 @@ public class ReflectionFactory {
         }
         boolean isFinal = Modifier.isFinal(field.getModifiers());
         boolean isReadOnly = isFinal && (!override || langReflectAccess.isTrustedFinalField(field));
-        if (VM.isModuleSystemInited() && useDirectMethodHandle) {
+        if (useDirectMethodHandle && VM.isModuleSystemInited()) {
            return MethodHandleAccessorFactory.newFieldAccessor(field, isReadOnly);
         } else {
             return UnsafeFieldAccessorFactory.newFieldAccessor(field, isReadOnly);
@@ -206,8 +207,18 @@ public class ReflectionFactory {
             method = root;
         }
 
-        if (VM.isModuleSystemInited() && (useDirectMethodHandle || noInflation)) {
+        if (useDirectMethodHandle && VM.isModuleSystemInited()) {
             return MethodHandleAccessorFactory.newMethodAccessor(method);
+        } else if (!useDirectMethodHandle && noInflation
+                    && !method.getDeclaringClass().isHidden()
+                    && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass())) {
+            return new MethodAccessorGenerator().
+                    generateMethod(method.getDeclaringClass(),
+                                   method.getName(),
+                                   method.getParameterTypes(),
+                                   method.getReturnType(),
+                                   method.getExceptionTypes(),
+                                   method.getModifiers());
         } else {
             NativeMethodAccessorImpl acc = new NativeMethodAccessorImpl(method);
             DelegatingMethodAccessorImpl res = new DelegatingMethodAccessorImpl(acc);
@@ -234,8 +245,22 @@ public class ReflectionFactory {
             c = root;
         }
 
-        if (VM.isModuleSystemInited() && (useDirectMethodHandle || noInflation)) {
+        if (useDirectMethodHandle && VM.isModuleSystemInited()) {
             return MethodHandleAccessorFactory.newConstructorAccessor(c);
+        } else if (!useDirectMethodHandle && noInflation
+                && !c.getDeclaringClass().isHidden()
+                && !ReflectUtil.isVMAnonymousClass(c.getDeclaringClass())) {
+            // Bootstrapping issue: since we use Class.newInstance() in
+            // the ConstructorAccessor generation process, we have to
+            // break the cycle here.
+            if (Reflection.isSubclassOf(declaringClass,
+                    ConstructorAccessorImpl.class)) {
+                return new BootstrapConstructorAccessorImpl(c);
+            }
+            return new MethodAccessorGenerator().generateConstructor(c.getDeclaringClass(),
+                                                                     c.getParameterTypes(),
+                                                                     c.getExceptionTypes(),
+                                                                     c.getModifiers());
         } else {
             NativeConstructorAccessorImpl acc = new NativeConstructorAccessorImpl(c);
             DelegatingConstructorAccessorImpl res = new DelegatingConstructorAccessorImpl(acc);
@@ -613,6 +638,10 @@ public class ReflectionFactory {
 
     static int inflationThreshold() {
         return inflationThreshold;
+    }
+
+    static boolean useDirectMethodHandle() {
+        return useDirectMethodHandle;
     }
 
     /** We have to defer full initialization of this class until after

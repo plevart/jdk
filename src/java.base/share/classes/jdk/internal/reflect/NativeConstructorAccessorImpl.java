@@ -28,6 +28,7 @@ package jdk.internal.reflect;
 import java.lang.reflect.*;
 import jdk.internal.misc.Unsafe;
 import jdk.internal.misc.VM;
+import sun.reflect.misc.ReflectUtil;
 
 /** Used only for the first few invocations of a Constructor;
     afterward, switches to bytecode-based implementation */
@@ -51,19 +52,32 @@ class NativeConstructorAccessorImpl extends ConstructorAccessorImpl {
                IllegalArgumentException,
                InvocationTargetException
     {
-        if (++numInvocations > ReflectionFactory.inflationThreshold()
-                && VM.isModuleSystemInited()
-                && generated == 0
-                && U.compareAndSetInt(this, GENERATED_OFFSET, 0, 1)) {
-            try {
+        try {
+            if (VM.isModuleSystemInited()
+                    && ReflectionFactory.useDirectMethodHandle()
+                    && generated == 0
+                    && U.compareAndSetInt(this, GENERATED_OFFSET, 0, 1)) {
                 ConstructorAccessorImpl acc =
-                    MethodHandleAccessorFactory.newConstructorAccessor(c);
+                        MethodHandleAccessorFactory.newConstructorAccessor(c);
                 parent.setDelegate(acc);
-            } catch (Throwable t) {
-                // Throwable happens in generateConstructor, restore generated to 0
-                generated = 0;
-                throw t;
+            } else if (!ReflectionFactory.useDirectMethodHandle()
+                        && ++numInvocations > ReflectionFactory.inflationThreshold()
+                        && !c.getDeclaringClass().isHidden()
+                        && !ReflectUtil.isVMAnonymousClass(c.getDeclaringClass())
+                        && generated == 0
+                        && U.compareAndSetInt(this, GENERATED_OFFSET, 0, 1)) {
+                ConstructorAccessorImpl acc = (ConstructorAccessorImpl)
+                        new MethodAccessorGenerator().
+                                generateConstructor(c.getDeclaringClass(),
+                                                    c.getParameterTypes(),
+                                                    c.getExceptionTypes(),
+                                                    c.getModifiers());
+                parent.setDelegate(acc);
             }
+        } catch (Throwable t) {
+            // Throwable happens in generateConstructor, restore generated to 0
+            generated = 0;
+            throw t;
         }
 
         return newInstance0(c, args);

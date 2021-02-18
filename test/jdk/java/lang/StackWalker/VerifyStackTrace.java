@@ -159,23 +159,24 @@ public class VerifyStackTrace {
             "16: VerifyStackTrace.main(VerifyStackTrace.java:188)\n";
 
         private final String expected =
-                "1: VerifyStackTrace.lambda$test$1(VerifyStackTrace.java:213)\n" +
-                        "2: VerifyStackTrace$$Lambda$1/0x00000007c0089430.run(Unknown Source)\n" +
-                        "3: VerifyStackTrace$Handle.execute(VerifyStackTrace.java:149)\n" +
-                        "4: java.base/java.lang.invoke.LambdaForm$DMH/0x00000007c008a830.invokeVirtual_LL_V(LambdaForm$DMH)\n" +
-                        "5: java.base/java.lang.invoke.LambdaForm$MH/0x00000007c008a830.invoke_MT(LambdaForm$MH)\n" +
-                        "6: VerifyStackTrace$Handle.run(VerifyStackTrace.java:162)\n" +
-                        "7: VerifyStackTrace.invoke(VerifyStackTrace.java:192)\n" +
+                "1: VerifyStackTrace.lambda$test$1(VerifyStackTrace.java:280)\n" +
+                        "2: VerifyStackTrace$$Lambda$1/0x0000000800001848.run(Unknown Source)\n" +
+                        "3: VerifyStackTrace$Handle.execute(VerifyStackTrace.java:206)\n" +
+                        "4: java.base/java.lang.invoke.DirectMethodHandle$Holder.invokeVirtual(DirectMethodHandle$Holder)\n" +
+                        "5: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800005c00.invoke_MT(LambdaForm$MH)\n" +
+                        "6: VerifyStackTrace$Handle.run(VerifyStackTrace.java:219)\n" +
+                        "7: VerifyStackTrace.invoke(VerifyStackTrace.java:259)\n" +
                         "8: java.base/java.lang.invoke.LambdaForm$DMH/0x0000000800002000.invokeStatic(LambdaForm$DMH)\n" +
-                        "9: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800081c00.invoke(LambdaForm$MH)\n" +
-                        "10: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800082000.invokeExact_MT(LambdaForm$MH)\n" +
-                        "11: java.base/jdk.internal.reflect.DirectMethodAccessorImpl.invoke(DirectMethodAccessorImpl.java:94)\n" +
-                        "12: java.base/java.lang.reflect.Method.invoke(Method.java:520)\n" +
-                        "13: VerifyStackTrace$1.run(VerifyStackTrace.java:222)\n" +
-                        "14: java.base/java.security.AccessController.executePrivileged(AccessController.java:759)\n" +
-                        "15: java.base/java.security.AccessController.doPrivileged(AccessController.java:310)\n" +
-                        "16: VerifyStackTrace.test(VerifyStackTrace.java:231)\n" +
-                        "17: VerifyStackTrace.main(VerifyStackTrace.java:188)\n";
+                        "9: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800002c00.invoke(LambdaForm$MH)\n" +
+                        "10: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800004400.invoke(LambdaForm$MH)\n" +
+                        "11: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800004800.invokeExact_MT(LambdaForm$MH)\n" +
+                        "12: java.base/jdk.internal.reflect.DirectMethodAccessorImpl.invoke(DirectMethodAccessorImpl.java:48)\n" +
+                        "13: java.base/java.lang.reflect.Method.invoke(Method.java:572)\n" +
+                        "14: VerifyStackTrace$1.run(VerifyStackTrace.java:292)\n" +
+                        "15: java.base/java.security.AccessController.executePrivileged(AccessController.java:753)\n" +
+                        "16: java.base/java.security.AccessController.doPrivileged(AccessController.java:312)\n" +
+                        "17: VerifyStackTrace.test(VerifyStackTrace.java:301)\n" +
+                        "18: VerifyStackTrace.main(VerifyStackTrace.java:254)\n";
 
         @Override public StackWalker walker() { return walker;}
         @Override public String description() { return description;}
