@@ -83,13 +83,9 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
          * in this implementation.  The invocation of the CSM may also call
          * Reflection::getCallerClass another time.
          *
-         * One option to improve the performance improvement: we can define
-         * a private method for each CSM that takes a caller class as the first
-         * argument.  This DirectMethodHandleAccessor can eagerly lookup such
-         * private method for a caller-sensitive method as the target.
-         * This method will call the target MH with the caller class such that
-         * the invocation of the caller-sensitive method will do stack walking
-         * at most once.
+         * If a caller-sensitive method implements an alternative method
+         * with "reflected$" prefix that takes an additional trailing caller
+         * class argument, such alternative implementation will be invoked instead.
          */
         @Override
         @ForceInline

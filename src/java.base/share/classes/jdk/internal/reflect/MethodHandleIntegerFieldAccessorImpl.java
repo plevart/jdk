@@ -25,6 +25,8 @@
 
 package jdk.internal.reflect;
 
+import jdk.internal.vm.annotation.ForceInline;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.WrongMethodTypeException;
 import java.lang.reflect.Field;
@@ -38,8 +40,9 @@ class MethodHandleIntegerFieldAccessorImpl extends MethodHandleFieldAccessorImpl
         super(field, getter, setter);
         this.getter_I = getter.asType(methodType(int.class, Object.class));
         this.setter_I = setter != null ? setter.asType(methodType(void.class, Object.class, int.class))
-                : null;
+                                       : null;
     }
+
     public Object get(Object obj) throws IllegalArgumentException {
         return Integer.valueOf(getInt(obj));
     }
@@ -60,6 +63,7 @@ class MethodHandleIntegerFieldAccessorImpl extends MethodHandleFieldAccessorImpl
         throw newGetShortIllegalArgumentException();
     }
 
+    @ForceInline
     public int getInt(Object obj) throws IllegalArgumentException {
         ensureObj(obj);
         try {

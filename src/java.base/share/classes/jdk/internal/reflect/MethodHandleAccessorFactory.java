@@ -41,8 +41,6 @@ import java.lang.reflect.Modifier;
 import static java.lang.invoke.MethodType.methodType;
 
 final class MethodHandleAccessorFactory {
-    private static final MethodType METHOD_INVOKE_TYPE = methodType(Object.class, Object.class, Object[].class);
-
     static MethodAccessorImpl newMethodAccessor(Method method) {
         try {
             if (Reflection.isCallerSensitive(method)) {
@@ -63,9 +61,9 @@ final class MethodHandleAccessorFactory {
             MethodHandle mh = JLIA.unreflectConstructor(ctor);
             int paramCount = mh.type().parameterCount();
 
-            MethodHandle target = mh.asType(mh.type().changeReturnType(Object.class));
             // invoke method with an exception handler that throws InvocationTargetException
-            target = MethodHandles.catchException(target, Throwable.class, WRAP);
+            MethodType type = mh.type().changeReturnType(Object.class);
+            MethodHandle target = MethodHandles.catchException(mh.asType(type), Throwable.class, WRAP);
             target = target.asSpreader(Object[].class, paramCount)
                            .asType(methodType(Object.class, Object[].class));
             return new DirectConstructorAccessorImpl(ctor, target);
@@ -155,8 +153,8 @@ final class MethodHandleAccessorFactory {
         //                        WRAP.asType(methodType(dmh.type().returnType(), Throwable.class)));
 
         // invoke method with an exception handler that throws InvocationTargetException
-        MethodHandle target = dmh.asType(dmh.type().changeReturnType(Object.class));
-        target = MethodHandles.catchException(target, Throwable.class, WRAP);
+        MethodType type = dmh.type().changeReturnType(Object.class);
+        MethodHandle target = MethodHandles.catchException(dmh.asType(type), Throwable.class, WRAP);
         int paramCount = dmh.type().parameterCount();
         if (Modifier.isStatic(modifiers)) {
             // static method
@@ -166,7 +164,7 @@ final class MethodHandleAccessorFactory {
             // instance method
             target = target.asSpreader(Object[].class, paramCount - 1);
         }
-        return target.asType(METHOD_INVOKE_TYPE);
+        return target.asType(methodType(Object.class, Object.class, Object[].class));
     }
 
     // make this package-private to workaround a bug in Reflection::getCallerClass

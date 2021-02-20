@@ -34,12 +34,15 @@ abstract class MethodHandleFieldAccessorImpl extends FieldAccessorImpl {
     protected final MethodHandle getter;
     protected final MethodHandle setter;
     protected final boolean isReadOnly;
+    protected final boolean isStatic;
+
     protected MethodHandleFieldAccessorImpl(Field field, MethodHandle getter, MethodHandle setter) {
         super(field);
         this.getter = getter;
         this.setter = setter;
         this.isReadOnly = setter == null;
-    }
+        this.isStatic = Modifier.isStatic(field.getModifiers());
+        }
 
     @Override
     public Object get(Object obj) throws IllegalArgumentException {
@@ -79,15 +82,15 @@ abstract class MethodHandleFieldAccessorImpl extends FieldAccessorImpl {
     }
 
     protected void ensureObj(Object o) {
-        // no check on the given object if it's a static field
-        if (!Modifier.isStatic(field.getModifiers())) {
-            if (o == null) {
-                throw new NullPointerException("null receiver");
-            }
-            // NOTE: will throw NullPointerException, as specified, if o is null
-            if (!field.getDeclaringClass().isAssignableFrom(o.getClass())) {
-                throwSetIllegalArgumentException(o);
-            }
+        if (isStatic) return;
+
+        // null check on the given object only if it's an instance field
+        if (o == null) {
+            throw new NullPointerException("null receiver");
+        }
+        // NOTE: will throw NullPointerException, as specified, if o is null
+        if (!field.getDeclaringClass().isAssignableFrom(o.getClass())) {
+            throwSetIllegalArgumentException(o);
         }
     }
 }
