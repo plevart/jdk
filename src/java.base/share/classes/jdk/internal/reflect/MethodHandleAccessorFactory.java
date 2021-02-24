@@ -170,6 +170,9 @@ final class MethodHandleAccessorFactory {
     // make this package-private to workaround a bug in Reflection::getCallerClass
     // that skips this class and the lookup class is ReflectionFactory instead
     static Object wrap(Throwable e) throws InvocationTargetException {
+        if (e instanceof ExceptionInInitializerError eiie)
+            throw eiie;
+
         throw new InvocationTargetException(e);
     }
 

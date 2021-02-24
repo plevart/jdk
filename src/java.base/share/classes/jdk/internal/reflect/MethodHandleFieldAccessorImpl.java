@@ -84,10 +84,6 @@ abstract class MethodHandleFieldAccessorImpl extends FieldAccessorImpl {
     protected void ensureObj(Object o) {
         if (isStatic) return;
 
-        // null check on the given object only if it's an instance field
-        if (o == null) {
-            throw new NullPointerException("null receiver");
-        }
         // NOTE: will throw NullPointerException, as specified, if o is null
         if (!field.getDeclaringClass().isAssignableFrom(o.getClass())) {
             throwSetIllegalArgumentException(o);

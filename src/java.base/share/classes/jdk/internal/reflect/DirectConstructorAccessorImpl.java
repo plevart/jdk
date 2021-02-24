@@ -43,6 +43,8 @@ final class DirectConstructorAccessorImpl extends ConstructorAccessorImpl {
             throw e;
         } catch (ClassCastException|NullPointerException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
+        } catch (Error|RuntimeException e) {
+            throw e;
         } catch (Throwable e) {
             throw new InvocationTargetException(e);
         }

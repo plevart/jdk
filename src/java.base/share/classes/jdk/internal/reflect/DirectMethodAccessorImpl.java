@@ -50,6 +50,8 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
             throw e;
         } catch (ClassCastException | NullPointerException e) {
             throw new IllegalArgumentException("argument type mismatch", e);
+        } catch (Error|RuntimeException e) {
+            throw e;
         } catch (Throwable e) {
             throw new InvocationTargetException(e);
         }
@@ -98,6 +100,8 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
                 throw e;
             } catch (ClassCastException | NullPointerException e) {
                 throw new IllegalArgumentException("argument type mismatch", e);
+            } catch (Error|RuntimeException e) {
+                throw e;
             } catch (Throwable e) {
                 throw new InvocationTargetException(e);
             }
