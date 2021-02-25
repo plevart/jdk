@@ -499,13 +499,19 @@ abstract class MethodHandleImpl {
             if (newArity == collectArg+1 &&
                 type.parameterType(collectArg).isAssignableFrom(newType.parameterType(collectArg))) {
                 // if arity and trailing parameter are compatible, do normal thing
-                return asTypeCache = asFixedArity().asType(newType);
+                MethodHandle mh = asFixedArity().asType(newType);
+                asTypeCache = new WeakMethodHandle(mh);
+                return mh;
             }
             // check cache
             MethodHandle acc = asCollectorCache;
-            if (acc != null && acc.type().parameterCount() == newArity)
-                return asTypeCache = acc.asType(newType);
-            // build and cache a collector
+            if (acc != null && acc.type().parameterCount() == newArity) {
+                MethodHandle mh = acc.asType(newType);
+                asTypeCache = new WeakMethodHandle(mh);
+                return mh;
+            }
+
+                // build and cache a collector
             int arrayLength = newArity - collectArg;
             MethodHandle collector;
             try {
@@ -515,7 +521,9 @@ abstract class MethodHandleImpl {
                 throw new WrongMethodTypeException("cannot build collector", ex);
             }
             asCollectorCache = collector;
-            return asTypeCache = collector.asType(newType);
+            MethodHandle mh = collector.asType(newType);
+            asTypeCache = new WeakMethodHandle(mh);
+            return mh;
         }
 
         @Override
@@ -846,7 +854,8 @@ abstract class MethodHandleImpl {
             } else {
                 wrapper = newTarget; // no need for a counting wrapper anymore
             }
-            return (asTypeCache = wrapper);
+            asTypeCache = new WeakMethodHandle(wrapper);
+            return wrapper;
         }
 
         boolean countDown() {
@@ -1381,7 +1390,9 @@ abstract class MethodHandleImpl {
         public MethodHandle asTypeUncached(MethodType newType) {
             // This MH is an alias for target, except for the MemberName
             // Drop the MemberName if there is any conversion.
-            return asTypeCache = target.asType(newType);
+            MethodHandle mh =  target.asType(newType);
+            asTypeCache = new WeakMethodHandle(mh);
+            return mh;
         }
     }
 
@@ -1433,7 +1444,9 @@ abstract class MethodHandleImpl {
         public MethodHandle asTypeUncached(MethodType newType) {
             // This MH is an alias for target, except for the intrinsic name
             // Drop the name if there is any conversion.
-            return asTypeCache = target.asType(newType);
+            MethodHandle mh = target.asType(newType);
+            asTypeCache = new WeakMethodHandle(mh);
+            return mh;
         }
 
         @Override

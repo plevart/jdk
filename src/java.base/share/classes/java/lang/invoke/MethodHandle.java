@@ -33,6 +33,7 @@ import java.lang.constant.Constable;
 import java.lang.constant.DirectMethodHandleDesc;
 import java.lang.constant.MethodHandleDesc;
 import java.lang.constant.MethodTypeDesc;
+import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
@@ -439,6 +440,11 @@ mh.invokeExact(System.out, "Hello, world.");
  * @since 1.7
  */
 public abstract class MethodHandle implements Constable {
+    static class WeakMethodHandle extends WeakReference<MethodHandle> {
+        WeakMethodHandle(MethodHandle referent) {
+            super(referent);
+        }
+    }
 
     /**
      * Internal marker interface which distinguishes (to the Java compiler)
@@ -453,7 +459,7 @@ public abstract class MethodHandle implements Constable {
     final LambdaForm form;
     // form is not private so that invokers can easily fetch it
     /*private*/
-    MethodHandle asTypeCache;
+    WeakMethodHandle asTypeCache;
     // asTypeCache is not private so that invokers can easily fetch it
 
     private byte customizationCount;
@@ -870,7 +876,7 @@ public abstract class MethodHandle implements Constable {
     }
 
     private MethodHandle asTypeCached(MethodType newType) {
-        MethodHandle atc = asTypeCache;
+        MethodHandle atc = asTypeCache != null ? asTypeCache.get() : null;
         if (atc != null && newType == atc.type) {
             return atc;
         }
@@ -882,7 +888,9 @@ public abstract class MethodHandle implements Constable {
     MethodHandle asTypeUncached(MethodType newType) {
         if (!type.isConvertibleTo(newType))
             throw new WrongMethodTypeException("cannot convert "+this+" to "+newType);
-        return asTypeCache = MethodHandleImpl.makePairwiseConvert(this, newType, true);
+        MethodHandle mh = MethodHandleImpl.makePairwiseConvert(this, newType, true);
+        asTypeCache = new WeakMethodHandle(mh);
+        return mh;
     }
 
     /**

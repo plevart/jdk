@@ -167,16 +167,15 @@ public class VerifyStackTrace {
                         "6: VerifyStackTrace$Handle.run(VerifyStackTrace.java:219)\n" +
                         "7: VerifyStackTrace.invoke(VerifyStackTrace.java:259)\n" +
                         "8: java.base/java.lang.invoke.LambdaForm$DMH/0x0000000800002000.invokeStatic(LambdaForm$DMH)\n" +
-                        "9: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800002c00.invoke(LambdaForm$MH)\n" +
-                        "10: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800004400.invoke(LambdaForm$MH)\n" +
-                        "11: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800004800.invokeExact_MT(LambdaForm$MH)\n" +
-                        "12: java.base/jdk.internal.reflect.DirectMethodAccessorImpl.invoke(DirectMethodAccessorImpl.java:48)\n" +
-                        "13: java.base/java.lang.reflect.Method.invoke(Method.java:572)\n" +
-                        "14: VerifyStackTrace$1.run(VerifyStackTrace.java:292)\n" +
-                        "15: java.base/java.security.AccessController.executePrivileged(AccessController.java:753)\n" +
-                        "16: java.base/java.security.AccessController.doPrivileged(AccessController.java:312)\n" +
-                        "17: VerifyStackTrace.test(VerifyStackTrace.java:301)\n" +
-                        "18: VerifyStackTrace.main(VerifyStackTrace.java:254)\n";
+                        "9: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800004400.invoke(LambdaForm$MH)\n" +
+                        "10: java.base/java.lang.invoke.LambdaForm$MH/0x0000000800004800.invokeExact_MT(LambdaForm$MH)\n" +
+                        "11: java.base/jdk.internal.reflect.DirectMethodAccessorImpl.invoke(DirectMethodAccessorImpl.java:48)\n" +
+                        "12: java.base/java.lang.reflect.Method.invoke(Method.java:572)\n" +
+                        "13: VerifyStackTrace$1.run(VerifyStackTrace.java:292)\n" +
+                        "14: java.base/java.security.AccessController.executePrivileged(AccessController.java:753)\n" +
+                        "15: java.base/java.security.AccessController.doPrivileged(AccessController.java:312)\n" +
+                        "16: VerifyStackTrace.test(VerifyStackTrace.java:301)\n" +
+                        "17: VerifyStackTrace.main(VerifyStackTrace.java:254)\n";
 
         @Override public StackWalker walker() { return walker;}
         @Override public String description() { return description;}

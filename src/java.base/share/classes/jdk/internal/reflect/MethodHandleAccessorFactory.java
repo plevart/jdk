@@ -27,7 +27,9 @@ package jdk.internal.reflect;
 
 import jdk.internal.access.JavaLangInvokeAccess;
 import jdk.internal.access.SharedSecrets;
+import jdk.internal.misc.Unsafe;
 import jdk.internal.reflect.DirectMethodAccessorImpl.CallerSensitiveMethodAccessorImpl;
+import jdk.internal.vm.annotation.Hidden;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -41,7 +43,12 @@ import java.lang.reflect.Modifier;
 import static java.lang.invoke.MethodType.methodType;
 
 final class MethodHandleAccessorFactory {
+    private static Unsafe UNSAFE = Unsafe.getUnsafe();
     static MethodAccessorImpl newMethodAccessor(Method method) {
+        // ExceptionInInitializerError may be thrown during class initialization
+        // Ensure class initialized outside the invocation of method handle
+        // so that EIIE is propagated (not wrapped with ITE)
+        UNSAFE.ensureClassInitialized(method.getDeclaringClass());
         try {
             if (Reflection.isCallerSensitive(method)) {
                 DirectMethodAccessorImpl accessor = findMethodWithTrailingCaller(method);
@@ -49,7 +56,6 @@ final class MethodHandleAccessorFactory {
                     return accessor;
                 }
             }
-
             return findMethod(method);
         } catch (IllegalAccessException e) {
             throw new InternalError(e);
@@ -57,13 +63,15 @@ final class MethodHandleAccessorFactory {
     }
 
     static ConstructorAccessorImpl newConstructorAccessor(Constructor<?> ctor) {
+        // ExceptionInInitializerError may be thrown during class initialization
+        // Ensure class initialized outside the invocation of method handle
+        // so that EIIE is propagated (not wrapped with ITE)
+        UNSAFE.ensureClassInitialized(ctor.getDeclaringClass());
         try {
             MethodHandle mh = JLIA.unreflectConstructor(ctor);
             int paramCount = mh.type().parameterCount();
-
-            // invoke method with an exception handler that throws InvocationTargetException
-            MethodType type = mh.type().changeReturnType(Object.class);
-            MethodHandle target = MethodHandles.catchException(mh.asType(type), Throwable.class, WRAP);
+            MethodHandle target = MethodHandles.catchException(mh, Throwable.class,
+                    WRAP.asType(methodType(mh.type().returnType(), Throwable.class)));
             target = target.asSpreader(Object[].class, paramCount)
                            .asType(methodType(Object.class, Object[].class));
             return new DirectConstructorAccessorImpl(ctor, target);
@@ -73,6 +81,10 @@ final class MethodHandleAccessorFactory {
     }
 
     static FieldAccessorImpl newFieldAccessor(Field field, boolean isReadOnly) {
+        // ExceptionInInitializerError may be thrown during class initialization
+        // Ensure class initialized outside the invocation of method handle
+        // so that EIIE is propagated (not wrapped with ITE)
+        UNSAFE.ensureClassInitialized(field.getDeclaringClass());
         try {
             MethodHandle getter = JLIA.unreflectField(field, false);
             MethodHandle setter = isReadOnly ? null : JLIA.unreflectField(field, true);
@@ -147,15 +159,9 @@ final class MethodHandleAccessorFactory {
     }
 
     static MethodHandle makeTarget(MethodHandle dmh,  int modifiers) {
-        // TODO: memory leak if we did this.
-        // WRAP::asType caches the return type in MethodHandle::asTypeCache
-        // MethodHandle target = MethodHandles.catchException(dmh, Throwable.class,
-        //                        WRAP.asType(methodType(dmh.type().returnType(), Throwable.class)));
-
-        // invoke method with an exception handler that throws InvocationTargetException
-        MethodType type = dmh.type().changeReturnType(Object.class);
-        MethodHandle target = MethodHandles.catchException(dmh.asType(type), Throwable.class, WRAP);
         int paramCount = dmh.type().parameterCount();
+        MethodHandle target = MethodHandles.catchException(dmh, Throwable.class,
+                WRAP.asType(methodType(dmh.type().returnType(), Throwable.class)));
         if (Modifier.isStatic(modifiers)) {
             // static method
             MethodHandle spreader = target.asSpreader(Object[].class, paramCount);
@@ -169,10 +175,10 @@ final class MethodHandleAccessorFactory {
 
     // make this package-private to workaround a bug in Reflection::getCallerClass
     // that skips this class and the lookup class is ReflectionFactory instead
+    // this frame is hidden not to alter the stacktrace for InvocationTargetException
+    // so that the stack trace of its cause is the same as ITE.
+    @Hidden
     static Object wrap(Throwable e) throws InvocationTargetException {
-        if (e instanceof ExceptionInInitializerError eiie)
-            throw eiie;
-
         throw new InvocationTargetException(e);
     }
 
