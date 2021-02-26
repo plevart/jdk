@@ -1292,6 +1292,8 @@ abstract class MethodHandleImpl {
                 MethodHandle invoker = IMPL_LOOKUP.findStatic(invokerClass, "invoke_V", INVOKER_MT);
                 MethodHandle vamh = prepareForInvoker(MH_checkCallerClass);
                 return (boolean)invoker.invoke(vamh, new Object[]{ invokerClass });
+            } catch (Error|RuntimeException ex) {
+                throw ex;
             } catch (Throwable ex) {
                 throw new InternalError(ex);
             }
