@@ -30,6 +30,7 @@ import jdk.internal.reflect.CallerSensitive;
 import jdk.internal.reflect.MethodAccessor;
 import jdk.internal.reflect.Reflection;
 import jdk.internal.vm.annotation.ForceInline;
+import jdk.internal.vm.annotation.Hidden;
 import jdk.internal.vm.annotation.IntrinsicCandidate;
 import jdk.internal.vm.annotation.Stable;
 import sun.reflect.annotation.ExceptionProxy;
@@ -557,6 +558,7 @@ public final class Method extends Executable {
                           : null;
         return cs$invoke(caller, obj, args);
     }
+    @Hidden
     private Object cs$invoke(Class<?> caller, Object obj, Object... args)
         throws IllegalAccessException, IllegalArgumentException,
            InvocationTargetException {

@@ -1,6 +1,7 @@
 package jdk.internal.reflect;
 
 import jdk.internal.vm.annotation.ForceInline;
+import jdk.internal.vm.annotation.Hidden;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -52,6 +53,7 @@ class GeneratedMethodAccessorFactory {
 
         @Override
         @ForceInline
+        @Hidden
         public Object invoke(Class<?> caller, Object obj, Object[] args) throws IllegalArgumentException, InvocationTargetException {
             Object[] cs$args = new Object[args == null ? 1 : args.length + 1];
             cs$args[0] = caller;
