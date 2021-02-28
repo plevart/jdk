@@ -551,14 +551,15 @@ public final class Method extends Executable {
     @IntrinsicCandidate
     public Object invoke(Object obj, Object... args)
         throws IllegalAccessException, IllegalArgumentException,
-           InvocationTargetException
-    {
-        boolean callerSensitive = Reflection.isCallerSensitive(this);
-        Class<?> caller = null;
-        if (!override || callerSensitive) {
-            caller = Reflection.getCallerClass();
-        }
-
+           InvocationTargetException {
+        Class<?> caller = (!override || Reflection.isCallerSensitive(this))
+                          ? Reflection.getCallerClass()
+                          : null;
+        return cs$invoke(caller, obj, args);
+    }
+    private Object cs$invoke(Class<?> caller, Object obj, Object... args)
+        throws IllegalAccessException, IllegalArgumentException,
+           InvocationTargetException {
         if (!override) {
             checkAccess(caller, clazz,
                         Modifier.isStatic(modifiers) ? null : obj.getClass(),
@@ -569,7 +570,7 @@ public final class Method extends Executable {
             ma = acquireMethodAccessor();
         }
 
-        return callerSensitive && caller != null ? ma.invoke(caller, obj, args) : ma.invoke(obj, args);
+        return caller != null ? ma.invoke(caller, obj, args) : ma.invoke(obj, args);
     }
 
     /**

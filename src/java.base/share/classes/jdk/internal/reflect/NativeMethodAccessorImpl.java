@@ -39,48 +39,81 @@ class NativeMethodAccessorImpl extends MethodAccessorImpl {
         = U.objectFieldOffset(NativeMethodAccessorImpl.class, "generated");
 
     private final Method method;
+    private final Method cs$method;
     private DelegatingMethodAccessorImpl parent;
     private int numInvocations;
     private volatile int generated;
 
     NativeMethodAccessorImpl(Method method) {
+        Method cs$method;
+        if (Reflection.isCallerSensitive(method)) {
+            String cs$name = "cs$" + method.getName();
+            Class<?>[] ptypes = method.getParameterTypes();
+            Class<?>[] cs$ptypes = new Class<?>[ptypes.length + 1];
+            cs$ptypes[0] = Class.class;
+            System.arraycopy(ptypes, 0, cs$ptypes, 1, ptypes.length);
+            try {
+                cs$method = method.getDeclaringClass().getDeclaredMethod(cs$name, cs$ptypes);
+            } catch (NoSuchMethodException e) {
+                cs$method = null;
+            }
+        } else {
+            cs$method = null;
+        }
         this.method = method;
+        this.cs$method = cs$method;
     }
 
+    @Override
     public Object invoke(Object obj, Object[] args)
         throws IllegalArgumentException, InvocationTargetException
     {
+        if (cs$method != null) {
+            throw new InternalError("cs$method invoked without explicit caller: " + method);
+        }
+        maybeSwapDelegate(method);
+        return invoke0(method, obj, args);
+    }
+
+    @Override
+    public Object invoke(Class<?> caller, Object obj, Object[] args)
+        throws IllegalArgumentException, InvocationTargetException
+    {
+        maybeSwapDelegate(method);
+        if (cs$method != null) {
+            Object[] cs$args = new Object[args == null ? 1 : args.length + 1];
+            cs$args[0] = caller;
+            if (args != null) {
+                System.arraycopy(args, 0, cs$args, 1, args.length);
+            }
+            return invoke0(cs$method, obj, cs$args);
+        } else {
+            return invoke0(method, obj, args);
+        }
+    }
+
+    private void maybeSwapDelegate(Method method) {
         try {
             if (VM.isModuleSystemInited()
-                    && ReflectionFactory.useDirectMethodHandle()
-                    && generated == 0
-                    && U.compareAndSetInt(this, GENERATED_OFFSET, 0, 1)) {
-                MethodAccessorImpl acc =
-                    MethodHandleAccessorFactory.newMethodAccessor(method);
-                parent.setDelegate(acc);
+                && ReflectionFactory.useDirectMethodHandle()
+                && generated == 0
+                && U.compareAndSetInt(this, GENERATED_OFFSET, 0, 1)) {
+                parent.setDelegate(
+                    MethodHandleAccessorFactory.newMethodAccessor(method));
             } else if (!ReflectionFactory.useDirectMethodHandle()
-                        && ++numInvocations > ReflectionFactory.inflationThreshold()
-                        && !method.getDeclaringClass().isHidden()
-                        && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass())
-                        && generated == 0
-                        && U.compareAndSetInt(this, GENERATED_OFFSET, 0, 1)) {
-                MethodAccessorImpl acc = (MethodAccessorImpl)
-                     new MethodAccessorGenerator().
-                         generateMethod(method.getDeclaringClass(),
-                                        method.getName(),
-                                        method.getParameterTypes(),
-                                        method.getReturnType(),
-                                        method.getExceptionTypes(),
-                                        method.getModifiers());
-                parent.setDelegate(acc);
+                       && ++numInvocations > ReflectionFactory.inflationThreshold()
+                       && !method.getDeclaringClass().isHidden()
+                       && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass())
+                       && generated == 0
+                       && U.compareAndSetInt(this, GENERATED_OFFSET, 0, 1)) {
+                parent.setDelegate(
+                    GeneratedMethodAccessorFactory.newMethodAccessor(method));
             }
         } catch (Throwable t) {
             // Throwable happens in generateMethod, restore generated to 0
             generated = 0;
             throw t;
         }
-
-        return invoke0(method, obj, args);
     }
 
     void setParent(DelegatingMethodAccessorImpl parent) {

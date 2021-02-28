@@ -138,9 +138,17 @@ public interface JavaLangInvokeAccess {
 
     MethodHandle unreflectConstructor(Constructor<?> ctor) throws IllegalAccessException;
     MethodHandle unreflectField(Field field, boolean isSetter) throws IllegalAccessException;
-    MethodHandle rebindCaller(Class<?> caller, MethodHandle mh) throws IllegalAccessException;
     MethodHandle findVirtual(Class<?> defc, String name, MethodType type) throws IllegalAccessException;
     MethodHandle findStatic(Class<?> defc, String name, MethodType type) throws IllegalAccessException;
 
-    Class<?> originalCaller(Class<?> caller);
+    /**
+     * Returns an invoker MH that can be used to invoke @CS methods that would
+     * appear to be invoked from a class with equal class loader, protection domain
+     * and access rights as given caller.
+     *
+     * @param caller the caller class
+     * @return an invoker MH of the following type: (MethodHandle, Object, Object[])Object
+     *         which invokes MHs of the following type: (Object, Object[])Object
+     */
+    MethodHandle reflectiveInvoker(Class<?> caller);
 }

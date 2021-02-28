@@ -120,50 +120,18 @@ public class MethodHandles {
     }
 
     /**
-     * This reflected$lookup method is the alternate implementation of
-     * the lookup method when being invoked by reflection.
+     * This cs$lookup method is the alternate implementation of
+     * the above lookup method with a leading caller class argument which is
+     * non-caller-sensitive and is selected in place of above method when
+     * above method is looked up or invoked via reflection in which case
+     * the caller is explicitly passed either as lookupClass or as
+     * caller class invoking Method.invoke respectively.
      */
-    @CallerSensitive
-    private static Lookup reflected$lookup() {
-        Class<?> caller = Reflection.getCallerClass();
+    private static Lookup cs$lookup(Class<?> caller) {
         if (caller.getClassLoader() == null) {
             throw newIllegalArgumentException("illegal lookupClass: "+caller);
         }
-        // find the original caller if the caller is an injected invoker
-        // i.e. MethodHandles::lookup is called via Method::invoke which is
-        // invoked via MethodHandle
-        Class<?> originalCaller = MethodHandleImpl.originalCallerBoundToInvoker(caller);
-        return originalCaller != null ? new Lookup(originalCaller) : new Lookup(caller);
-    }
-
-    /**
-     * This reflected$lookup method is the alternate implementation of
-     * the lookup method with a trailing caller class argument which is
-     * non-caller-sensitive.
-     */
-    private static Lookup reflected$lookup(Class<?> caller) {
         return new Lookup(caller);
-    }
-
-    static MethodHandle rebindCaller(Class<?> caller, MethodHandle target) throws IllegalAccessException {
-        MemberName member = target.internalMemberName();
-        if (member == null || !MethodHandleNatives.isCallerSensitive(member))
-            throw newIllegalArgumentException("must be caller-sensitive method: " + member);
-
-        Class<?> defc = member.getDeclaringClass();
-        byte refKind = member.getReferenceKind();
-        assert(MethodHandleNatives.refKindIsValid(refKind));
-        if (refKind == REF_invokeSpecial && !target.isInvokeSpecial())
-            // Devirtualized method invocation is usually formally virtual.
-            // To avoid creating extra MemberName objects for this common case,
-            // we encode this extra degree of freedom using MH.isInvokeSpecial.
-            refKind = REF_invokeVirtual;
-        if (refKind == REF_invokeVirtual && defc.isInterface())
-            // Symbolic reference is through interface but resolves to Object method (toString, etc.)
-            refKind = REF_invokeInterface;
-
-        Lookup lookup = new Lookup(caller);
-        return lookup.getDirectMethodNoSecurityManager(refKind, defc, member, lookup);
     }
 
     /**

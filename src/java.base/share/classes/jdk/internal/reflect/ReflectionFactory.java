@@ -140,24 +140,6 @@ public class ReflectionFactory {
         return soleInstance;
     }
 
-    /**
-     * Returns an alternate reflective Method instance for the given method
-     * intended for reflection to invoke, if present.
-     *
-     * A trusted method can define an alternate implementation for a method `foo`
-     * by defining a method named "reflected$foo" that will be invoked
-     * reflectively.
-     */
-    private static Method findMethodForReflection(Method method) {
-        String altName = "reflected$" + method.getName();
-        try {
-           return method.getDeclaringClass()
-                        .getDeclaredMethod(altName, method.getParameterTypes());
-        } catch (NoSuchMethodException ex) {
-            return null;
-        }
-    }
-
     //--------------------------------------------------------------------------
     //
     // Routines used by java.lang.reflect
@@ -194,13 +176,6 @@ public class ReflectionFactory {
     public MethodAccessor newMethodAccessor(Method method) {
         checkInitted();
 
-        if (Reflection.isCallerSensitive(method)) {
-            Method altMethod = findMethodForReflection(method);
-            if (altMethod != null) {
-                method = altMethod;
-            }
-        }
-
         // use the root Method that will not cache caller class
         Method root = langReflectAccess.getRoot(method);
         if (root != null) {
@@ -212,13 +187,7 @@ public class ReflectionFactory {
         } else if (!useDirectMethodHandle && noInflation
                     && !method.getDeclaringClass().isHidden()
                     && !ReflectUtil.isVMAnonymousClass(method.getDeclaringClass())) {
-            return new MethodAccessorGenerator().
-                    generateMethod(method.getDeclaringClass(),
-                                   method.getName(),
-                                   method.getParameterTypes(),
-                                   method.getReturnType(),
-                                   method.getExceptionTypes(),
-                                   method.getModifiers());
+            return GeneratedMethodAccessorFactory.newMethodAccessor(method);
         } else {
             NativeMethodAccessorImpl acc = new NativeMethodAccessorImpl(method);
             DelegatingMethodAccessorImpl res = new DelegatingMethodAccessorImpl(acc);
