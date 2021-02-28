@@ -34,12 +34,16 @@ import java.lang.reflect.InvocationTargetException;
 */
 
 public interface MethodAccessor {
-    /** Matches specification in {@link java.lang.reflect.Method} */
-    public Object invoke(Object obj, Object[] args)
+    /**
+     * Matches specification in {@link java.lang.reflect.Method}.
+     * Invoked when target method is not caller-sensitive.
+     */
+    Object invoke(Object obj, Object[] args)
         throws IllegalArgumentException, InvocationTargetException;
 
-    default Object invoke(Class<?> caller, Object obj, Object[] args)
-            throws IllegalArgumentException, InvocationTargetException {
-        return invoke(obj, args);
-    }
+    /**
+     * Invoked when target method is caller-sensitive.
+     */
+    Object invoke(Class<?> caller, Object obj, Object[] args)
+        throws IllegalArgumentException, InvocationTargetException;
 }
