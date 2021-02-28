@@ -91,9 +91,7 @@ class DirectMethodAccessorImpl extends MethodAccessorImpl {
 
         @Override
         public Object invoke(Object obj, Object[] args) throws InvocationTargetException {
-            throw new InternalError(
-                "caller-sensitive method invoked via reflective invoker without explicit caller: "
-                + target);
+            throw new InternalError("caller-sensitive method invoked without explicit caller: " + target);
         }
 
         @Override

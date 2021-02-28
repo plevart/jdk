@@ -79,8 +79,8 @@ class NativeMethodAccessorImpl extends MethodAccessorImpl {
     public Object invoke(Class<?> caller, Object obj, Object[] args)
         throws IllegalArgumentException, InvocationTargetException
     {
-        maybeSwapDelegate(method);
         if (cs$method != null) {
+            maybeSwapDelegate(method);
             Object[] cs$args = new Object[args == null ? 1 : args.length + 1];
             cs$args[0] = caller;
             if (args != null) {
@@ -88,7 +88,8 @@ class NativeMethodAccessorImpl extends MethodAccessorImpl {
             }
             return invoke0(cs$method, obj, cs$args);
         } else {
-            return invoke0(method, obj, args);
+            // @CS method but no cs$method entrypoint - insert reflective invoker
+            return super.invoke(caller, obj, args);
         }
     }
 

@@ -25,17 +25,37 @@
  * @test
  * @bug 8010117
  * @summary Test if the VM enforces Reflection.getCallerClass
- *          be called by methods annotated with CallerSensitive plus
+ *          be called by system methods annotated with CallerSensitive plus
  *          test reflective and method handle based invocation of caller-sensitive
  *          methods with or without alternative cs$method entrypoints
+ *          - using DirectMethodAccessorImpl
  * @modules java.base/jdk.internal.reflect
  * @build SetupGetCallerClass boot.GetCallerClass
  * @run driver SetupGetCallerClass
- * @run main/othervm -Xbootclasspath/a:bcp GetCallerClassTest
+ * @run main/othervm -Xbootclasspath/a:bcp -Djdk.reflect.useDirectMethodHandle=true GetCallerClassTest
+ */
+
+/*
+ * @test
+ * @summary - using NativeMethodAccessorImpl
+ * @modules java.base/jdk.internal.reflect
+ * @build SetupGetCallerClass boot.GetCallerClass
+ * @run driver SetupGetCallerClass
+ * @run main/othervm -Xbootclasspath/a:bcp -Djdk.reflect.useDirectMethodHandle=false -Dsun.reflect.noInflation=false GetCallerClassTest
+ */
+
+/*
+ * @test
+ * @summary - using generated MethodAccessor
+ * @modules java.base/jdk.internal.reflect
+ * @build SetupGetCallerClass boot.GetCallerClass
+ * @run driver SetupGetCallerClass
+ * @run main/othervm -Xbootclasspath/a:bcp -Djdk.reflect.useDirectMethodHandle=false -Dsun.reflect.noInflation=true GetCallerClassTest
  */
 
 import boot.GetCallerClass;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.*;
@@ -67,6 +87,8 @@ public class GetCallerClassTest {
         gcct.testCallerSensitiveMethodsUsingReflection();
         // call @CS methods using method handles
         gcct.testCallerSensitiveMethodsUsingMethodHandles();
+        // call @CS methods using reflection but call Method.invoke with a method handle
+        gcct.testCallerSensitiveMethodsUsingMethodHandlesAndReflection();
     }
 
     private static void ensureAnnotationPresent(Class<?> c, String name, boolean cs)
@@ -112,7 +134,7 @@ public class GetCallerClassTest {
     }
 
     private void testCallerSensitiveMethods() {
-        System.out.println("\ntestCallerSensitiveMethods...");
+        System.out.println();
         Class<?> caller;
 
         caller = gcc.getCallerClass();
@@ -127,7 +149,7 @@ public class GetCallerClassTest {
     }
 
     private void testCallerSensitiveMethodsUsingReflection() {
-        System.out.println("\ntestCallerSensitiveMethodsUsingReflection...");
+        System.out.println();
 
         try {
             Class<?> caller;
@@ -157,7 +179,7 @@ public class GetCallerClassTest {
     }
 
     private void testCallerSensitiveMethodsUsingMethodHandles() {
-        System.out.println("\ntestCallerSensitiveMethodsUsingMethodHandles...");
+        System.out.println();
 
         try {
             MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -183,6 +205,46 @@ public class GetCallerClassTest {
             if (!caller.isNestmateOf(GetCallerClassTest.class)) {
                 throw new RuntimeException("mismatched caller: " + caller);
             }
+        } catch (RuntimeException | Error e) {
+            throw e;
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static final Object[] EMPTY_ARRAY = new Object[0];
+
+    private void testCallerSensitiveMethodsUsingMethodHandlesAndReflection() {
+        System.out.println();
+
+        try {
+            MethodHandle methodInvokeMh = MethodHandles
+                .lookup()
+                .findVirtual(Method.class, "invoke", MethodType.methodType(Object.class, Object.class, Object[].class));
+
+            Class<?> caller;
+
+            caller = (Class<?>) methodInvokeMh.invoke(gccCl.getDeclaredMethod("getCallerClass"), gcc, EMPTY_ARRAY);
+            if (caller != GetCallerClassTest.class) {
+                throw new RuntimeException("mismatched caller: " + caller);
+            }
+
+            caller = (Class<?>) methodInvokeMh.invoke(gccCl.getDeclaredMethod("getCallerClassStatic"), null, EMPTY_ARRAY);
+            if (caller != GetCallerClassTest.class) {
+                throw new RuntimeException("mismatched caller: " + caller);
+            }
+
+            caller = (Class<?>) methodInvokeMh.invoke(gccCl.getDeclaredMethod("getCallerClassNoAlt"), gcc, EMPTY_ARRAY);
+            if (!caller.isNestmateOf(GetCallerClassTest.class)) {
+                throw new RuntimeException("mismatched caller: " + caller);
+            }
+
+            caller = (Class<?>) methodInvokeMh.invoke(gccCl.getDeclaredMethod("getCallerClassStaticNoAlt"), null, EMPTY_ARRAY);
+            if (!caller.isNestmateOf(GetCallerClassTest.class)) {
+                throw new RuntimeException("mismatched caller: " + caller);
+            }
+        } catch (RuntimeException | Error e) {
+            throw e;
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
