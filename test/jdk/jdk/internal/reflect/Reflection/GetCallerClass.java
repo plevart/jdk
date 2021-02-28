@@ -24,14 +24,44 @@
 package boot;
 
 public class GetCallerClass {
-    @jdk.internal.reflect.CallerSensitive
-    public ClassLoader getCallerLoader() {
-        Class<?> c = jdk.internal.reflect.Reflection.getCallerClass();
-        return c.getClassLoader();
+
+    public Class<?> missingCallerSensitiveAnnotation() {
+        return jdk.internal.reflect.Reflection.getCallerClass();
     }
 
-    public ClassLoader missingCallerSensitiveAnnotation() {
-        Class<?> c = jdk.internal.reflect.Reflection.getCallerClass();
-        return c.getClassLoader();
+    @jdk.internal.reflect.CallerSensitive
+    public Class<?> getCallerClass() {
+        var caller = jdk.internal.reflect.Reflection.getCallerClass();
+        System.out.println("getCallerClass called by " + caller);
+        return caller;
+    }
+    private Class<?> cs$getCallerClass(Class<?> caller) {
+        System.out.println("cs$getCallerClass called by " + caller);
+        return caller;
+    }
+
+    @jdk.internal.reflect.CallerSensitive
+    public static Class<?> getCallerClassStatic() {
+        var caller = jdk.internal.reflect.Reflection.getCallerClass();
+        System.out.println("getCallerClassStatic called by " + caller);
+        return caller;
+    }
+    private static Class<?> cs$getCallerClassStatic(Class<?> caller) {
+        System.out.println("cs$getCallerClassStatic called by " + caller);
+        return caller;
+    }
+
+    @jdk.internal.reflect.CallerSensitive
+    public Class<?> getCallerClassNoAlt() {
+        var caller = jdk.internal.reflect.Reflection.getCallerClass();
+        System.out.println("getCallerClassNoAlt called by " + caller);
+        return caller;
+    }
+
+    @jdk.internal.reflect.CallerSensitive
+    public static Class<?> getCallerClassStaticNoAlt() {
+        var caller = jdk.internal.reflect.Reflection.getCallerClass();
+        System.out.println("getCallerClassStaticNoAlt called by " + caller);
+        return caller;
     }
 }
