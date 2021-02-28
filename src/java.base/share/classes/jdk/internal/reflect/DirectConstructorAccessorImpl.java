@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,25 +25,28 @@
 
 package jdk.internal.reflect;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
-/** This interface provides the declaration for
-    java.lang.reflect.Method.invoke(). Each Method object is
-    configured with a (possibly dynamically-generated) class which
-    implements this interface.
-*/
+final class DirectConstructorAccessorImpl extends ConstructorAccessorImpl {
+    private final MethodHandle target;      // target method handle bound to the declaring class of the method
+    DirectConstructorAccessorImpl(Constructor<?> ctor, MethodHandle target) {
+        this.target = target;
+    }
 
-public interface MethodAccessor {
-    /**
-     * Matches specification in {@link java.lang.reflect.Method}.
-     * Invoked when target method is not caller-sensitive.
-     */
-    Object invoke(Object obj, Object[] args)
-        throws IllegalArgumentException, InvocationTargetException;
-
-    /**
-     * Invoked when target method is caller-sensitive.
-     */
-    Object invoke(Class<?> caller, Object obj, Object[] args)
-        throws IllegalArgumentException, InvocationTargetException;
+    @Override
+    public Object newInstance(Object[] args) throws InstantiationException, InvocationTargetException {
+        try {
+            return target.invokeExact(args);
+        } catch (IllegalArgumentException|InvocationTargetException e) {
+            throw e;
+        } catch (ClassCastException|NullPointerException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        } catch (Error|RuntimeException e) {
+            throw e;
+        } catch (Throwable e) {
+            throw new InvocationTargetException(e);
+        }
+    }
 }

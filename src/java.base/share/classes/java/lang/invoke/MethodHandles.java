@@ -115,16 +115,19 @@ public class MethodHandles {
     @CallerSensitive
     @ForceInline // to ensure Reflection.getCallerClass optimization
     public static Lookup lookup() {
-        return new Lookup(Reflection.getCallerClass());
+        Class<?> caller = Reflection.getCallerClass();
+        return new Lookup(caller);
     }
 
     /**
-     * This reflected$lookup method is the alternate implementation of
-     * the lookup method when being invoked by reflection.
+     * This cs$lookup method is the alternate implementation of
+     * the above lookup method with a leading caller class argument which is
+     * non-caller-sensitive and is selected in place of above method when
+     * above method is looked up or invoked via reflection in which case
+     * the caller is explicitly passed either as lookupClass or as
+     * caller class invoking Method.invoke respectively.
      */
-    @CallerSensitive
-    private static Lookup reflected$lookup() {
-        Class<?> caller = Reflection.getCallerClass();
+    private static Lookup cs$lookup(Class<?> caller) {
         if (caller.getClassLoader() == null) {
             throw newIllegalArgumentException("illegal lookupClass: "+caller);
         }
@@ -2369,15 +2372,16 @@ public class MethodHandles {
 
         /**
          * Returns a ClassDefiner that creates a {@code Class} object of a hidden class
-         * from the given bytes.  No package name check on the given name.
+         * from the given bytes and the given options.  No package name check on the given name.
          *
          * @param name    fully-qualified name that specifies the prefix of the hidden class
          * @param bytes   class bytes
-         * @return ClassDefiner that defines a hidden class of the given bytes.
+         * @param options class options
+         * @return ClassDefiner that defines a hidden class of the given bytes and options.
          */
-        ClassDefiner makeHiddenClassDefiner(String name, byte[] bytes) {
+        ClassDefiner makeHiddenClassDefiner(String name, byte[] bytes, Set<ClassOption> options) {
             // skip name and access flags validation
-            return makeHiddenClassDefiner(ClassFile.newInstanceNoCheck(name, bytes), Set.of(), false);
+            return makeHiddenClassDefiner(ClassFile.newInstanceNoCheck(name, bytes), options, false);
         }
 
         /**

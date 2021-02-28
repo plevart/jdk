@@ -30,6 +30,9 @@ import jdk.internal.invoke.NativeEntryPoint;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Map;
@@ -132,4 +135,20 @@ public interface JavaLangInvokeAccess {
      * @return the native method handle
      */
     MethodHandle nativeMethodHandle(NativeEntryPoint nep, MethodHandle fallback);
+
+    MethodHandle unreflectConstructor(Constructor<?> ctor) throws IllegalAccessException;
+    MethodHandle unreflectField(Field field, boolean isSetter) throws IllegalAccessException;
+    MethodHandle findVirtual(Class<?> defc, String name, MethodType type) throws IllegalAccessException;
+    MethodHandle findStatic(Class<?> defc, String name, MethodType type) throws IllegalAccessException;
+
+    /**
+     * Returns an invoker MH that can be used to invoke @CS methods that would
+     * appear to be invoked from a class with equal class loader, protection domain
+     * and access rights as given caller.
+     *
+     * @param caller the caller class
+     * @return an invoker MH of the following type: (MethodHandle, Object, Object[])Object
+     *         which invokes MHs of the following type: (Object, Object[])Object
+     */
+    MethodHandle reflectiveInvoker(Class<?> caller);
 }

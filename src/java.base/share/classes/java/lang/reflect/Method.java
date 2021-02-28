@@ -30,6 +30,7 @@ import jdk.internal.reflect.CallerSensitive;
 import jdk.internal.reflect.MethodAccessor;
 import jdk.internal.reflect.Reflection;
 import jdk.internal.vm.annotation.ForceInline;
+import jdk.internal.vm.annotation.Hidden;
 import jdk.internal.vm.annotation.IntrinsicCandidate;
 import jdk.internal.vm.annotation.Stable;
 import sun.reflect.annotation.ExceptionProxy;
@@ -550,11 +551,13 @@ public final class Method extends Executable {
     @ForceInline // to ensure Reflection.getCallerClass optimization
     @IntrinsicCandidate
     public Object invoke(Object obj, Object... args)
-        throws IllegalAccessException, IllegalArgumentException,
-           InvocationTargetException
+        throws IllegalAccessException, IllegalArgumentException, InvocationTargetException
     {
+        boolean callerSensitive = isCallerSensitive();
+        Class<?> caller = !override || callerSensitive
+                          ? Reflection.getCallerClass()
+                          : null;
         if (!override) {
-            Class<?> caller = Reflection.getCallerClass();
             checkAccess(caller, clazz,
                         Modifier.isStatic(modifiers) ? null : obj.getClass(),
                         modifiers);
@@ -563,7 +566,34 @@ public final class Method extends Executable {
         if (ma == null) {
             ma = acquireMethodAccessor();
         }
-        return ma.invoke(obj, args);
+
+        return callerSensitive ? ma.invoke(caller, obj, args) : ma.invoke(obj, args);
+    }
+
+    private Object cs$invoke(Class<?> caller, Object obj, Object... args)
+        throws IllegalAccessException, IllegalArgumentException, InvocationTargetException
+    {
+        if (!override) {
+            checkAccess(caller, clazz,
+                        Modifier.isStatic(modifiers) ? null : obj.getClass(),
+                        modifiers);
+        }
+        MethodAccessor ma = methodAccessor;             // read volatile
+        if (ma == null) {
+            ma = acquireMethodAccessor();
+        }
+
+        return isCallerSensitive() ? ma.invoke(caller, obj, args) : ma.invoke(obj, args);
+    }
+
+    private Boolean isCallerSensitive;
+
+    private boolean isCallerSensitive() {
+        Boolean cs = isCallerSensitive;
+        if (cs == null) {
+            isCallerSensitive = cs = Reflection.isCallerSensitive(this);
+        }
+        return cs;
     }
 
     /**

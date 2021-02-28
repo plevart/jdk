@@ -42,6 +42,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.Callable;
 
+import jdk.test.lib.util.ForceGC;
 import jdk.test.lib.compiler.CompilerUtils;
 import jdk.test.lib.util.ForceGC;
 import org.testng.annotations.BeforeTest;
