@@ -36,8 +36,8 @@ abstract class VarHandleObjectFieldAccessorImpl extends VarHandleFieldAccessorIm
                 : new InstanceFieldAccessor(field, varHandle, isReadOnly);
     }
 
-    VarHandleObjectFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly) {
-        super(field, varHandle, isReadOnly);
+    VarHandleObjectFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly, boolean isStatic) {
+        super(field, varHandle, isReadOnly, isStatic);
     }
 
     abstract Object getValue(Object obj);
@@ -45,31 +45,29 @@ abstract class VarHandleObjectFieldAccessorImpl extends VarHandleFieldAccessorIm
 
     static class StaticFieldAccessor extends VarHandleObjectFieldAccessorImpl {
         StaticFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly);
+            super(field, varHandle, isReadOnly, true);
         }
 
         Object getValue(Object obj) {
-            return accessor().get();
+            return varHandle.get();
         }
 
         void setValue(Object obj, Object value) throws Throwable {
-            accessor().set(value);
+            varHandle.set(value);
         }
-
-        protected void ensureObj(Object o) {}
     }
 
     static class InstanceFieldAccessor extends VarHandleObjectFieldAccessorImpl {
         InstanceFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly);
+            super(field, varHandle, isReadOnly, false);
         }
 
         Object getValue(Object obj) {
-            return accessor().get(obj);
+            return varHandle.get(obj);
         }
 
         void setValue(Object obj, Object value) throws Throwable {
-            accessor().set(obj, value);
+            varHandle.set(obj, value);
         }
 
     }
@@ -121,7 +119,7 @@ abstract class VarHandleObjectFieldAccessorImpl extends VarHandleFieldAccessorIm
 
     @Override
     public void set(Object obj, Object value) throws IllegalAccessException {
-        if (isReadOnly) {
+        if (isReadOnly()) {
             ensureObj(obj);     // throw NPE if obj is null on instance field
             throwFinalFieldIllegalAccessException(value);
         }

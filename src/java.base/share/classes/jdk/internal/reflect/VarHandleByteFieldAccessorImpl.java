@@ -36,8 +36,8 @@ abstract class VarHandleByteFieldAccessorImpl extends VarHandleFieldAccessorImpl
                 : new InstanceFieldAccessor(field, varHandle, isReadOnly);
     }
 
-    VarHandleByteFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly) {
-        super(field, varHandle, isReadOnly);
+    VarHandleByteFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly, boolean isStatic) {
+        super(field, varHandle, isReadOnly, isStatic);
     }
 
     abstract byte getValue(Object obj);
@@ -45,31 +45,29 @@ abstract class VarHandleByteFieldAccessorImpl extends VarHandleFieldAccessorImpl
 
     static class StaticFieldAccessor extends VarHandleByteFieldAccessorImpl {
         StaticFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly);
+            super(field, varHandle, isReadOnly, true);
         }
 
         byte getValue(Object obj) {
-            return accessor().getByte();
+            return (byte) varHandle.get();
         }
 
         void setValue(Object obj, byte b) throws Throwable {
-            accessor().setByte(b);
+            varHandle.set(b);
         }
-
-        protected void ensureObj(Object o) {}
     }
 
     static class InstanceFieldAccessor extends VarHandleByteFieldAccessorImpl {
         InstanceFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly);
+            super(field, varHandle, isReadOnly, false);
         }
 
         byte getValue(Object obj) {
-            return accessor().getByte(obj);
+            return (byte) varHandle.get(obj);
         }
 
         void setValue(Object obj, byte b) throws Throwable {
-            accessor().setByte(obj, b);
+            varHandle.set(obj, b);
         }
     }
 
@@ -121,17 +119,19 @@ abstract class VarHandleByteFieldAccessorImpl extends VarHandleFieldAccessorImpl
             throws IllegalArgumentException, IllegalAccessException
     {
         ensureObj(obj);
-        if (isReadOnly) {
+        if (isReadOnly()) {
             throwFinalFieldIllegalAccessException(value);
         }
+
         if (value == null) {
             throwSetIllegalArgumentException(value);
         }
-        if (value instanceof Byte) {
-            setByte(obj, ((Byte) value).byteValue());
-            return;
+
+        if (value instanceof Byte b) {
+            setByte(obj, b.byteValue());
+        } else {
+            throwSetIllegalArgumentException(value);
         }
-        throwSetIllegalArgumentException(value);
     }
 
     public void setBoolean(Object obj, boolean z)
@@ -144,7 +144,7 @@ abstract class VarHandleByteFieldAccessorImpl extends VarHandleFieldAccessorImpl
         throws IllegalArgumentException, IllegalAccessException
     {
         ensureObj(obj);
-        if (isReadOnly) {
+        if (isReadOnly()) {
             throwFinalFieldIllegalAccessException(b);
         }
         try {

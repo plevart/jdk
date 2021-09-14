@@ -36,8 +36,8 @@ abstract class VarHandleBooleanFieldAccessorImpl extends VarHandleFieldAccessorI
                 : new InstanceFieldAccessor(field, varHandle, isReadOnly);
     }
 
-    VarHandleBooleanFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly) {
-        super(field, varHandle, isReadOnly);
+    VarHandleBooleanFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly, boolean isStatic) {
+        super(field, varHandle, isReadOnly, isStatic);
     }
 
     abstract boolean getValue(Object obj);
@@ -45,31 +45,29 @@ abstract class VarHandleBooleanFieldAccessorImpl extends VarHandleFieldAccessorI
 
     static class StaticFieldAccessor extends VarHandleBooleanFieldAccessorImpl {
         StaticFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly);
+            super(field, varHandle, isReadOnly, true);
         }
 
         boolean getValue(Object obj) {
-            return accessor().getBoolean();
+            return (boolean) varHandle.get();
         }
 
         void setValue(Object obj, boolean z) throws Throwable {
-            accessor().setBoolean(z);
+            varHandle.set(z);
         }
-
-        protected void ensureObj(Object o) {}
     }
 
     static class InstanceFieldAccessor extends VarHandleBooleanFieldAccessorImpl {
         InstanceFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly);
+            super(field, varHandle, isReadOnly, false);
         }
 
         boolean getValue(Object obj) {
-            return accessor().getBoolean(obj);
+            return (boolean) varHandle.get(obj);
         }
 
         void setValue(Object obj, boolean z) throws Throwable {
-            accessor().setBoolean(obj, z);
+            varHandle.set(obj, z);
         }
     }
 
@@ -122,24 +120,26 @@ abstract class VarHandleBooleanFieldAccessorImpl extends VarHandleFieldAccessorI
             throws IllegalArgumentException, IllegalAccessException
     {
         ensureObj(obj);
-        if (isReadOnly) {
+        if (isReadOnly()) {
             throwFinalFieldIllegalAccessException(value);
         }
+
         if (value == null) {
             throwSetIllegalArgumentException(value);
         }
-        if (value instanceof Boolean) {
-            setBoolean(obj, ((Boolean) value).booleanValue());
-            return;
+
+        if (value instanceof Boolean b) {
+            setBoolean(obj, b.booleanValue());
+        } else {
+            throwSetIllegalArgumentException(value);
         }
-        throwSetIllegalArgumentException(value);
     }
 
     public void setBoolean(Object obj, boolean z)
         throws IllegalArgumentException, IllegalAccessException
     {
         ensureObj(obj);
-        if (isReadOnly) {
+        if (isReadOnly()) {
             throwFinalFieldIllegalAccessException(z);
         }
         try {

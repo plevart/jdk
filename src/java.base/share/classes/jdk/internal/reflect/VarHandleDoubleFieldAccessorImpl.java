@@ -36,8 +36,8 @@ abstract class VarHandleDoubleFieldAccessorImpl extends VarHandleFieldAccessorIm
                 : new InstanceFieldAccessor(field, varHandle, isReadOnly);
     }
 
-    VarHandleDoubleFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly) {
-        super(field, varHandle, isReadOnly);
+    VarHandleDoubleFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly, boolean isStatic) {
+        super(field, varHandle, isReadOnly, isStatic);
     }
 
     abstract double getValue(Object obj);
@@ -45,31 +45,29 @@ abstract class VarHandleDoubleFieldAccessorImpl extends VarHandleFieldAccessorIm
 
     static class StaticFieldAccessor extends VarHandleDoubleFieldAccessorImpl {
         StaticFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly);
+            super(field, varHandle, isReadOnly, true);
         }
 
         double getValue(Object obj) {
-            return accessor().getDouble();
+            return (double) varHandle.get();
         }
 
         void setValue(Object obj, double d) throws Throwable {
-            accessor().setDouble(d);
+            varHandle.set(d);
         }
-
-        protected void ensureObj(Object o) {}
     }
 
     static class InstanceFieldAccessor extends VarHandleDoubleFieldAccessorImpl {
         InstanceFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly);
+            super(field, varHandle, isReadOnly, false);
         }
 
         double getValue(Object obj) {
-            return accessor().getDouble(obj);
+            return (double) varHandle.get(obj);
         }
 
         void setValue(Object obj, double d) throws Throwable {
-            accessor().setDouble(obj, d);
+            varHandle.set(obj, d);
         }
     }
 
@@ -120,42 +118,39 @@ abstract class VarHandleDoubleFieldAccessorImpl extends VarHandleFieldAccessorIm
     public void set(Object obj, Object value)
             throws IllegalArgumentException, IllegalAccessException
     {
-        if (isReadOnly) {
+        if (isReadOnly()) {
             ensureObj(obj);     // throw NPE if obj is null on instance field
             throwFinalFieldIllegalAccessException(value);
         }
+
         if (value == null) {
             throwSetIllegalArgumentException(value);
         }
-        if (value instanceof Byte) {
-            setDouble(obj, ((Byte) value).byteValue());
-            return;
+
+        if (value instanceof Byte b) {
+            setLong(obj, b.byteValue());
         }
-        if (value instanceof Short) {
-            setDouble(obj, ((Short) value).shortValue());
-            return;
+        else if (value instanceof Short s) {
+            setLong(obj, s.shortValue());
         }
-        if (value instanceof Character) {
-            setDouble(obj, ((Character) value).charValue());
-            return;
+        else if (value instanceof Character c) {
+            setLong(obj, c.charValue());
         }
-        if (value instanceof Integer) {
-            setDouble(obj, ((Integer) value).intValue());
-            return;
+        else if (value instanceof Integer i) {
+            setLong(obj, i.intValue());
         }
-        if (value instanceof Long) {
-            setDouble(obj, ((Long) value).longValue());
-            return;
+        else if (value instanceof Long l) {
+            setLong(obj, l.longValue());
         }
-        if (value instanceof Float) {
-            setDouble(obj, ((Float) value).floatValue());
-            return;
+        else if (value instanceof Float f) {
+            setFloat(obj, f.floatValue());
         }
-        if (value instanceof Double) {
-            setDouble(obj, ((Double) value).doubleValue());
-            return;
+        else if (value instanceof Double d) {
+            setDouble(obj, d.doubleValue());
         }
-        throwSetIllegalArgumentException(value);
+        else {
+            throwSetIllegalArgumentException(value);
+        }
     }
 
     public void setBoolean(Object obj, boolean z)
@@ -203,7 +198,7 @@ abstract class VarHandleDoubleFieldAccessorImpl extends VarHandleFieldAccessorIm
     public void setDouble(Object obj, double d)
         throws IllegalArgumentException, IllegalAccessException
     {
-        if (isReadOnly) {
+        if (isReadOnly()) {
             ensureObj(obj);     // throw NPE if obj is null on instance field
             throwFinalFieldIllegalAccessException(d);
         }

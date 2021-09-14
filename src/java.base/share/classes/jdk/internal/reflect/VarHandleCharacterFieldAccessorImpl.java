@@ -36,8 +36,8 @@ abstract class VarHandleCharacterFieldAccessorImpl extends VarHandleFieldAccesso
                 : new InstanceFieldAccessor(field, varHandle, isReadOnly);
     }
 
-    VarHandleCharacterFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly) {
-        super(field, varHandle, isReadOnly);
+    VarHandleCharacterFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly, boolean isStatic) {
+        super(field, varHandle, isReadOnly, isStatic);
     }
 
     abstract char getValue(Object obj);
@@ -45,31 +45,29 @@ abstract class VarHandleCharacterFieldAccessorImpl extends VarHandleFieldAccesso
 
     static class StaticFieldAccessor extends VarHandleCharacterFieldAccessorImpl {
         StaticFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly);
+            super(field, varHandle, isReadOnly, true);
         }
 
         char getValue(Object obj) {
-            return accessor().getChar();
+            return (char) varHandle.get();
         }
 
         void setValue(Object obj, char c) throws Throwable {
-            accessor().setChar(c);
+            varHandle.set(c);
         }
-
-        protected void ensureObj(Object o) {}
     }
 
     static class InstanceFieldAccessor extends VarHandleCharacterFieldAccessorImpl {
         InstanceFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly);
+            super(field, varHandle, isReadOnly, false);
         }
 
         char getValue(Object obj) {
-            return accessor().getChar(obj);
+            return (char) varHandle.get(obj);
         }
 
         void setValue(Object obj, char c) throws Throwable {
-            accessor().setChar(obj, c);
+            varHandle.set(obj, c);
         }
     }
 
@@ -120,18 +118,20 @@ abstract class VarHandleCharacterFieldAccessorImpl extends VarHandleFieldAccesso
     public void set(Object obj, Object value)
             throws IllegalArgumentException, IllegalAccessException
     {
-        if (isReadOnly) {
+        if (isReadOnly()) {
             ensureObj(obj);     // throw NPE if obj is null on instance field
             throwFinalFieldIllegalAccessException(value);
         }
+
         if (value == null) {
             throwSetIllegalArgumentException(value);
         }
-        if (value instanceof Character) {
-            setChar(obj, ((Character) value).charValue());
-            return;
+
+        if (value instanceof Character c) {
+            setChar(obj, c.charValue());
+        } else {
+            throwSetIllegalArgumentException(value);
         }
-        throwSetIllegalArgumentException(value);
     }
 
     public void setBoolean(Object obj, boolean z)
@@ -149,7 +149,7 @@ abstract class VarHandleCharacterFieldAccessorImpl extends VarHandleFieldAccesso
     public void setChar(Object obj, char c)
         throws IllegalArgumentException, IllegalAccessException
     {
-        if (isReadOnly) {
+        if (isReadOnly()) {
             ensureObj(obj);     // throw NPE if obj is null on instance field
             throwFinalFieldIllegalAccessException(c);
         }
