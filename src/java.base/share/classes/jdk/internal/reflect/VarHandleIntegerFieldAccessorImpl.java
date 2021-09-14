@@ -128,16 +128,16 @@ abstract class VarHandleIntegerFieldAccessorImpl extends VarHandleFieldAccessorI
         }
 
         if (value instanceof Byte b) {
-            setLong(obj, b.byteValue());
+            setInt(obj, b.byteValue());
         }
         else if (value instanceof Short s) {
-            setLong(obj, s.shortValue());
+            setInt(obj, s.shortValue());
         }
         else if (value instanceof Character c) {
-            setLong(obj, c.charValue());
+            setInt(obj, c.charValue());
         }
         else if (value instanceof Integer i) {
-            setLong(obj, i.intValue());
+            setInt(obj, i.intValue());
         }
         else {
             throwSetIllegalArgumentException(value);

@@ -128,19 +128,19 @@ abstract class VarHandleFloatFieldAccessorImpl extends VarHandleFieldAccessorImp
         }
 
         if (value instanceof Byte b) {
-            setLong(obj, b.byteValue());
+            setFloat(obj, b.byteValue());
         }
         else if (value instanceof Short s) {
-            setLong(obj, s.shortValue());
+            setFloat(obj, s.shortValue());
         }
         else if (value instanceof Character c) {
-            setLong(obj, c.charValue());
+            setFloat(obj, c.charValue());
         }
         else if (value instanceof Integer i) {
-            setLong(obj, i.intValue());
+            setFloat(obj, i.intValue());
         }
         else if (value instanceof Long l) {
-            setLong(obj, l.longValue());
+            setFloat(obj, l.longValue());
         }
         else if (value instanceof Float f) {
             setFloat(obj, f.floatValue());

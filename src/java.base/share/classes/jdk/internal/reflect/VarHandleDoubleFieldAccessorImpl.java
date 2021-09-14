@@ -128,22 +128,22 @@ abstract class VarHandleDoubleFieldAccessorImpl extends VarHandleFieldAccessorIm
         }
 
         if (value instanceof Byte b) {
-            setLong(obj, b.byteValue());
+            setDouble(obj, b.byteValue());
         }
         else if (value instanceof Short s) {
-            setLong(obj, s.shortValue());
+            setDouble(obj, s.shortValue());
         }
         else if (value instanceof Character c) {
-            setLong(obj, c.charValue());
+            setDouble(obj, c.charValue());
         }
         else if (value instanceof Integer i) {
-            setLong(obj, i.intValue());
+            setDouble(obj, i.intValue());
         }
         else if (value instanceof Long l) {
-            setLong(obj, l.longValue());
+            setDouble(obj, l.longValue());
         }
         else if (value instanceof Float f) {
-            setFloat(obj, f.floatValue());
+            setDouble(obj, f.floatValue());
         }
         else if (value instanceof Double d) {
             setDouble(obj, d.doubleValue());

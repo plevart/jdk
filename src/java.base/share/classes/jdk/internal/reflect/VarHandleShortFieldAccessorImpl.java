@@ -128,10 +128,10 @@ abstract class VarHandleShortFieldAccessorImpl extends VarHandleFieldAccessorImp
         }
 
         if (value instanceof Byte b) {
-            setLong(obj, b.byteValue());
+            setShort(obj, b.byteValue());
         }
         else if (value instanceof Short s) {
-            setLong(obj, s.shortValue());
+            setShort(obj, s.shortValue());
         }
         else {
             throwSetIllegalArgumentException(value);
