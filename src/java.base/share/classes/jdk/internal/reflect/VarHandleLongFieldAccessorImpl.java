@@ -25,49 +25,83 @@
 
 package jdk.internal.reflect;
 
+import jdk.internal.vm.annotation.ForceInline;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
 abstract class VarHandleLongFieldAccessorImpl extends VarHandleFieldAccessorImpl {
-    static FieldAccessorImpl fieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-        return Modifier.isStatic(field.getModifiers())
-                ? new StaticFieldAccessor(field, varHandle, isReadOnly)
-                : new InstanceFieldAccessor(field, varHandle, isReadOnly);
+    static FieldAccessorImpl fieldAccessor(Field field, MethodHandle getter, MethodHandle setter, boolean isReadOnly) {
+        if (Modifier.isStatic(field.getModifiers())) {
+            getter = getter.asType(MethodType.methodType(long.class));
+            if (setter != null) {
+                setter = setter.asType(MethodType.methodType(void.class, long.class));
+            }
+            return new StaticFieldAccessor(field, getter, setter, isReadOnly);
+        } else {
+            getter = getter.asType(MethodType.methodType(long.class, Object.class));
+            if (setter != null) {
+                setter = setter.asType(MethodType.methodType(void.class, Object.class, long.class));
+            }
+            return new InstanceFieldAccessor(field, getter, setter, isReadOnly);
+        }
     }
 
-    VarHandleLongFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly, boolean isStatic) {
-        super(field, varHandle, isReadOnly, isStatic);
+    VarHandleLongFieldAccessorImpl(Field field, MethodHandle getter, MethodHandle setter, boolean isReadOnly, boolean isStatic) {
+        super(field, getter, setter, isReadOnly, isStatic);
     }
 
     abstract long getValue(Object obj);
     abstract void setValue(Object obj, long l) throws Throwable;
 
     static class StaticFieldAccessor extends VarHandleLongFieldAccessorImpl {
-        StaticFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly, true);
+        StaticFieldAccessor(Field field, MethodHandle getter, MethodHandle setter, boolean isReadOnly) {
+            super(field, getter, setter, isReadOnly, true);
         }
 
+        @ForceInline
         long getValue(Object obj) {
-            return (long) varHandle.get();
+            try {
+                return (long) getter.invokeExact();
+            } catch (Throwable e) {
+                throw new InternalError(e);
+            }
         }
 
+        @ForceInline
         void setValue(Object obj, long l) throws Throwable {
-            varHandle.set(l);
+            try {
+                setter.invokeExact(l);
+            } catch (Throwable e) {
+                throw new InternalError(e);
+            }
         }
     }
 
     static class InstanceFieldAccessor extends VarHandleLongFieldAccessorImpl {
-        InstanceFieldAccessor(Field field, VarHandle varHandle, boolean isReadOnly) {
-            super(field, varHandle, isReadOnly, false);
+        InstanceFieldAccessor(Field field, MethodHandle getter, MethodHandle setter, boolean isReadOnly) {
+            super(field, getter, setter, isReadOnly, false);
         }
 
+        @ForceInline
         long getValue(Object obj) {
-            return (long) varHandle.get(obj);
+            try {
+                return (long) getter.invokeExact(obj);
+            } catch (Throwable e) {
+                throw new InternalError(e);
+            }
         }
 
+        @ForceInline
         void setValue(Object obj, long l) throws Throwable {
-            varHandle.set(obj, l);
+            try {
+                setter.invokeExact(obj, l);
+            } catch (Throwable e) {
+                throw new InternalError(e);
+            }
         }
     }
 

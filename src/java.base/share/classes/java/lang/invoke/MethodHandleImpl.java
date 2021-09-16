@@ -1633,6 +1633,11 @@ abstract class MethodHandleImpl {
             }
 
             @Override
+            public MethodHandle unreflectField(Field field, boolean isSetter) throws IllegalAccessException {
+                return isSetter ? IMPL_LOOKUP.unreflectSetter(field) : IMPL_LOOKUP.unreflectGetter(field);
+            }
+
+            @Override
             public VarHandle unreflectVarHandle(Field field) throws IllegalAccessException {
                 return IMPL_LOOKUP.unreflectVarHandle(field);
             }

@@ -27,6 +27,7 @@ package jdk.internal.reflect;
 
 import jdk.internal.vm.annotation.Stable;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 
@@ -36,14 +37,17 @@ abstract class VarHandleFieldAccessorImpl extends FieldAccessorImpl {
     private static final int NONZERO_BIT = 0x8000;
 
     private @Stable final int fieldFlags;
-    protected @Stable final VarHandle varHandle;
+    // protected @Stable final VarHandle varHandle;
+    protected @Stable final MethodHandle getter;
+    protected @Stable final MethodHandle setter;
 
-    protected VarHandleFieldAccessorImpl(Field field, VarHandle varHandle, boolean isReadOnly, boolean isStatic) {
+    protected VarHandleFieldAccessorImpl(Field field, MethodHandle getter, MethodHandle setter, boolean isReadOnly, boolean isStatic) {
         super(field);
         this.fieldFlags = (isReadOnly ? IS_READ_ONLY_BIT : 0) |
                           (isStatic ? IS_STATIC_BIT : 0) |
                           NONZERO_BIT;
-        this.varHandle = varHandle;
+        this.getter = getter;
+        this.setter = setter;
     }
 
     protected final boolean isReadOnly() {
