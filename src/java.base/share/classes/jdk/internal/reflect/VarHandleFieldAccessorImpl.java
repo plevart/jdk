@@ -28,7 +28,6 @@ package jdk.internal.reflect;
 import jdk.internal.vm.annotation.Stable;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 
 abstract class VarHandleFieldAccessorImpl extends FieldAccessorImpl {
@@ -37,7 +36,6 @@ abstract class VarHandleFieldAccessorImpl extends FieldAccessorImpl {
     private static final int NONZERO_BIT = 0x8000;
 
     private @Stable final int fieldFlags;
-    // protected @Stable final VarHandle varHandle;
     protected @Stable final MethodHandle getter;
     protected @Stable final MethodHandle setter;
 

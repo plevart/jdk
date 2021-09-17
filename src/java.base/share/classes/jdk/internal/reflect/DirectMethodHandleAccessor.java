@@ -90,25 +90,25 @@ class DirectMethodHandleAccessor extends MethodAccessorImpl {
     private static final int NONZERO_BIT = 0x8000_0000;
 
     @Stable private final Class<?> methodDeclaringClass;
-    @Stable private final int paramFlags;
+    @Stable private final int methodFlags;
     @Stable private final MethodHandle target;
 
     DirectMethodHandleAccessor(Method method, MethodHandle target, boolean hasCallerParameter) {
         this.methodDeclaringClass = method.getDeclaringClass();
-        this.paramFlags = (method.getParameterCount() & PARAM_COUNT_MASK) |
-                          (hasCallerParameter ? HAS_CALLER_PARAM_BIT : 0) |
-                          (Modifier.isStatic(method.getModifiers()) ? IS_STATIC_BIT : 0) |
-                          NONZERO_BIT;
+        this.methodFlags = (method.getParameterCount() & PARAM_COUNT_MASK) |
+                           (hasCallerParameter ? HAS_CALLER_PARAM_BIT : 0) |
+                           (Modifier.isStatic(method.getModifiers()) ? IS_STATIC_BIT : 0) |
+                           NONZERO_BIT;
         this.target = target;
     }
 
     @Override
     @ForceInline
     public Object invoke(Object obj, Object[] args) throws InvocationTargetException {
-        if ((paramFlags & IS_STATIC_BIT) == 0) {
+        if ((methodFlags & IS_STATIC_BIT) == 0) {
             checkReceiver(obj);
         }
-        checkArgumentCount(paramFlags & PARAM_COUNT_MASK, args);
+        checkArgumentCount(methodFlags & PARAM_COUNT_MASK, args);
         try {
             return invokeImpl(obj, args);
         } catch (ClassCastException | WrongMethodTypeException e) {
@@ -132,10 +132,10 @@ class DirectMethodHandleAccessor extends MethodAccessorImpl {
     @Override
     @ForceInline
     public Object invoke(Object obj, Object[] args, Class<?> caller) throws InvocationTargetException {
-        if ((paramFlags & IS_STATIC_BIT) == 0) {
+        if ((methodFlags & IS_STATIC_BIT) == 0) {
             checkReceiver(obj);
         }
-        checkArgumentCount(paramFlags & PARAM_COUNT_MASK, args);
+        checkArgumentCount(methodFlags & PARAM_COUNT_MASK, args);
         try {
             return invokeImpl(obj, args, caller);
         } catch (ClassCastException | WrongMethodTypeException e) {
@@ -159,7 +159,7 @@ class DirectMethodHandleAccessor extends MethodAccessorImpl {
     @Hidden
     @ForceInline
     private Object invokeImpl(Object obj, Object[] args) throws Throwable {
-        return switch (paramFlags & PARAM_COUNT_MASK) {
+        return switch (methodFlags & PARAM_COUNT_MASK) {
             case 0 -> target.invokeExact(obj);
             case 1 -> target.invokeExact(obj, args[0]);
             case 2 -> target.invokeExact(obj, args[0], args[1]);
@@ -171,9 +171,9 @@ class DirectMethodHandleAccessor extends MethodAccessorImpl {
     @Hidden
     @ForceInline
     private Object invokeImpl(Object obj, Object[] args, Class<?> caller) throws Throwable {
-        if ((paramFlags & HAS_CALLER_PARAM_BIT) > 0) {
+        if ((methodFlags & HAS_CALLER_PARAM_BIT) > 0) {
             // caller-sensitive method is invoked through method with caller parameter
-            return switch (paramFlags & PARAM_COUNT_MASK) {
+            return switch (methodFlags & PARAM_COUNT_MASK) {
                 case 0 -> target.invokeExact(obj, caller);
                 case 1 -> target.invokeExact(obj, args[0], caller);
                 case 2 -> target.invokeExact(obj, args[0], args[1], caller);

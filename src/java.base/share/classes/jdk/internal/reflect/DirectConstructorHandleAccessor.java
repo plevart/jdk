@@ -48,11 +48,11 @@ class DirectConstructorHandleAccessor extends ConstructorAccessorImpl {
     private static final int PARAM_COUNT_MASK = 0x00FF;
     private static final int NONZERO_BIT = 0x8000_0000;
 
-    @Stable private final int paramFlags;
+    @Stable private final int constructorFlags;
     @Stable private final MethodHandle target;
 
     DirectConstructorHandleAccessor(Constructor<?> ctor, MethodHandle target) {
-        this.paramFlags = (ctor.getParameterCount() & PARAM_COUNT_MASK) | NONZERO_BIT;
+        this.constructorFlags = (ctor.getParameterCount() & PARAM_COUNT_MASK) | NONZERO_BIT;
         this.target = target;
     }
 
@@ -60,7 +60,7 @@ class DirectConstructorHandleAccessor extends ConstructorAccessorImpl {
     public Object newInstance(Object[] args) throws InstantiationException, InvocationTargetException {
         int argc = args != null ? args.length : 0;
         // only check argument count for specialized forms
-        int paramCount = paramFlags & PARAM_COUNT_MASK;
+        int paramCount = constructorFlags & PARAM_COUNT_MASK;
         if (paramCount <= SPECIALIZED_PARAM_COUNT && argc != paramCount) {
             throw new IllegalArgumentException("wrong number of arguments: " + argc + " expected: " + paramCount);
         }
@@ -88,7 +88,7 @@ class DirectConstructorHandleAccessor extends ConstructorAccessorImpl {
     @Hidden
     @ForceInline
     Object invokeImpl(Object[] args) throws Throwable {
-        return switch (paramFlags & PARAM_COUNT_MASK) {
+        return switch (constructorFlags & PARAM_COUNT_MASK) {
             case 0 -> target.invokeExact();
             case 1 -> target.invokeExact(args[0]);
             case 2 -> target.invokeExact(args[0], args[1]);

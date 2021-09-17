@@ -29,7 +29,6 @@ import jdk.internal.vm.annotation.ForceInline;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
-import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
@@ -40,13 +39,13 @@ abstract class VarHandleFloatFieldAccessorImpl extends VarHandleFieldAccessorImp
             if (setter != null) {
                 setter = setter.asType(MethodType.methodType(void.class, float.class));
             }
-            return new VarHandleBooleanFieldAccessorImpl.StaticFieldAccessor(field, getter, setter, isReadOnly);
+            return new StaticFieldAccessor(field, getter, setter, isReadOnly);
         } else {
             getter = getter.asType(MethodType.methodType(float.class, Object.class));
             if (setter != null) {
                 setter = setter.asType(MethodType.methodType(void.class, Object.class, float.class));
             }
-            return new VarHandleBooleanFieldAccessorImpl.InstanceFieldAccessor(field, getter, setter, isReadOnly);
+            return new InstanceFieldAccessor(field, getter, setter, isReadOnly);
         }
     }
 
