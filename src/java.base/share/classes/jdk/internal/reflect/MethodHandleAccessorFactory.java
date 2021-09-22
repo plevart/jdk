@@ -33,6 +33,7 @@ import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.List;
 
 import jdk.internal.access.JavaLangInvokeAccess;
 import jdk.internal.access.SharedSecrets;
@@ -143,25 +144,42 @@ final class MethodHandleAccessorFactory {
             // var varHandle = JLIA.unreflectVarHandle(field);
             var getter = JLIA.unreflectField(field, false);
             var setter = isReadOnly ? null : JLIA.unreflectField(field, true);
+            if (Modifier.isStatic(field.getModifiers())) {
+                getter = MethodHandles.dropArguments(getter, 0, Object.class);
+                if (setter != null) {
+                    setter = MethodHandles.dropArguments(setter, 0, Object.class);
+                }
+            } else {
+                getter = getter.asType(getter.type().changeParameterType(0, Object.class));
+                if (setter != null) {
+                    setter = setter.asType(setter.type().changeParameterType(0, Object.class));
+                }
+            }
+            if (!getter.type().returnType().isPrimitive()) {
+                getter = getter.asType(getter.type().changeReturnType(Object.class));
+                if (setter != null) {
+                    setter = setter.asType(setter.type().changeParameterType(1, Object.class));
+                }
+            }
             Class<?> type = field.getType();
             if (type == Boolean.TYPE) {
-                return VarHandleBooleanFieldAccessorImpl.fieldAccessor(field, getter, setter, isReadOnly);
+                return VarHandleBooleanFieldAccessorImpl.fieldAccessor(field, getter, setter);
             } else if (type == Byte.TYPE) {
-                return VarHandleByteFieldAccessorImpl.fieldAccessor(field, getter, setter, isReadOnly);
+                return VarHandleByteFieldAccessorImpl.fieldAccessor(field, getter, setter);
             } else if (type == Short.TYPE) {
-                return VarHandleShortFieldAccessorImpl.fieldAccessor(field, getter, setter, isReadOnly);
+                return VarHandleShortFieldAccessorImpl.fieldAccessor(field, getter, setter);
             } else if (type == Character.TYPE) {
-                return VarHandleCharacterFieldAccessorImpl.fieldAccessor(field, getter, setter, isReadOnly);
+                return VarHandleCharacterFieldAccessorImpl.fieldAccessor(field, getter, setter);
             } else if (type == Integer.TYPE) {
-                return VarHandleIntegerFieldAccessorImpl.fieldAccessor(field, getter, setter, isReadOnly);
+                return VarHandleIntegerFieldAccessorImpl.fieldAccessor(field, getter, setter);
             } else if (type == Long.TYPE) {
-                return VarHandleLongFieldAccessorImpl.fieldAccessor(field, getter, setter, isReadOnly);
+                return VarHandleLongFieldAccessorImpl.fieldAccessor(field, getter, setter);
             } else if (type == Float.TYPE) {
-                return VarHandleFloatFieldAccessorImpl.fieldAccessor(field, getter, setter, isReadOnly);
+                return VarHandleFloatFieldAccessorImpl.fieldAccessor(field, getter, setter);
             } else if (type == Double.TYPE) {
-                return VarHandleDoubleFieldAccessorImpl.fieldAccessor(field, getter, setter, isReadOnly);
+                return VarHandleDoubleFieldAccessorImpl.fieldAccessor(field, getter, setter);
             } else {
-                return VarHandleObjectFieldAccessorImpl.fieldAccessor(field, getter, setter, isReadOnly);
+                return VarHandleObjectFieldAccessorImpl.fieldAccessor(field, getter, setter);
             }
         } catch (IllegalAccessException e) {
             throw new InternalError(e);

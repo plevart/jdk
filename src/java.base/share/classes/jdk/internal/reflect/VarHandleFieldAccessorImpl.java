@@ -28,38 +28,25 @@ package jdk.internal.reflect;
 import jdk.internal.vm.annotation.Stable;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Field;
 
 abstract class VarHandleFieldAccessorImpl extends FieldAccessorImpl {
-    private static final int IS_READ_ONLY_BIT = 0x0001;
-    private static final int IS_STATIC_BIT = 0x0002;
-    private static final int NONZERO_BIT = 0x8000;
+    static final MethodHandle RO_SETTER = MethodHandles.constant(Object.class, null);
 
-    private @Stable final int fieldFlags;
-    protected @Stable final MethodHandle getter;
-    protected @Stable final MethodHandle setter;
+    @Stable
+    final MethodHandle getter;
+    @Stable
+    final MethodHandle setter;
 
-    protected VarHandleFieldAccessorImpl(Field field, MethodHandle getter, MethodHandle setter, boolean isReadOnly, boolean isStatic) {
+    VarHandleFieldAccessorImpl(Field field, MethodHandle getter, MethodHandle setter) {
         super(field);
-        this.fieldFlags = (isReadOnly ? IS_READ_ONLY_BIT : 0) |
-                          (isStatic ? IS_STATIC_BIT : 0) |
-                          NONZERO_BIT;
         this.getter = getter;
-        this.setter = setter;
+        this.setter = setter == null ? RO_SETTER : setter;
     }
 
-    protected final boolean isReadOnly() {
-        return (fieldFlags & IS_READ_ONLY_BIT) == IS_READ_ONLY_BIT;
-    }
-
-    protected final void ensureObj(Object o) {
-        if ((fieldFlags & IS_STATIC_BIT) == 0) {
-            // for compatibility, check the receiver object first
-            // throw NullPointerException if o is null
-            if (!field.getDeclaringClass().isAssignableFrom(o.getClass())) {
-                throwSetIllegalArgumentException(o);
-            }
-        }
+    final boolean isReadOnly() {
+        return setter == RO_SETTER;
     }
 
     /**
@@ -77,6 +64,4 @@ abstract class VarHandleFieldAccessorImpl extends FieldAccessorImpl {
     protected IllegalArgumentException newSetIllegalArgumentException(Class<?> type) {
         return new IllegalArgumentException(getMessage(false, type.getName()));
     }
-
-
 }

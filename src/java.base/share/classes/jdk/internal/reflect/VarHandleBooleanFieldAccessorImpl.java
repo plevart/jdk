@@ -25,97 +25,29 @@
 
 package jdk.internal.reflect;
 
-import jdk.internal.vm.annotation.ForceInline;
-
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 
-abstract class VarHandleBooleanFieldAccessorImpl extends VarHandleFieldAccessorImpl {
-    static FieldAccessorImpl fieldAccessor(Field field, MethodHandle getter, MethodHandle setter, boolean isReadOnly) {
-        if (Modifier.isStatic(field.getModifiers())) {
-            getter = getter.asType(MethodType.methodType(boolean.class));
-            if (setter != null) {
-                setter = setter.asType(MethodType.methodType(void.class, boolean.class));
-            }
-            return new StaticFieldAccessor(field, getter, setter, isReadOnly);
-        } else {
-            getter = getter.asType(MethodType.methodType(boolean.class, Object.class));
-            if (setter != null) {
-                setter = setter.asType(MethodType.methodType(void.class, Object.class, boolean.class));
-            }
-            return new InstanceFieldAccessor(field, getter, setter, isReadOnly);
-        }
+final class VarHandleBooleanFieldAccessorImpl extends VarHandleFieldAccessorImpl {
+    static FieldAccessorImpl fieldAccessor(Field field, MethodHandle getter, MethodHandle setter) {
+        return new VarHandleBooleanFieldAccessorImpl(field, getter, setter);
     }
 
-    VarHandleBooleanFieldAccessorImpl(Field field, MethodHandle getter, MethodHandle setter, boolean isReadOnly, boolean isStatic) {
-        super(field, getter, setter, isReadOnly, isStatic);
-    }
-
-    abstract boolean getValue(Object obj);
-    abstract void setValue(Object obj, boolean z) throws Throwable;
-
-    static class StaticFieldAccessor extends VarHandleBooleanFieldAccessorImpl {
-        StaticFieldAccessor(Field field, MethodHandle getter, MethodHandle setter, boolean isReadOnly) {
-            super(field, getter, setter, isReadOnly, true);
-        }
-
-        @ForceInline
-        boolean getValue(Object obj) {
-            try {
-                return (boolean) getter.invokeExact();
-            } catch (Throwable e) {
-                throw new InternalError(e);
-            }
-        }
-
-        @ForceInline
-        void setValue(Object obj, boolean z) throws Throwable {
-            try {
-                setter.invokeExact(z);
-            } catch (Throwable e) {
-                throw new InternalError(e);
-            }
-        }
-    }
-
-    static class InstanceFieldAccessor extends VarHandleBooleanFieldAccessorImpl {
-        InstanceFieldAccessor(Field field, MethodHandle getter, MethodHandle setter, boolean isReadOnly) {
-            super(field, getter, setter, isReadOnly, false);
-        }
-
-        @ForceInline
-        boolean getValue(Object obj) {
-            try {
-                return (boolean) getter.invokeExact(obj);
-            } catch (Throwable e) {
-                throw new InternalError(e);
-            }
-        }
-
-        @ForceInline
-        void setValue(Object obj, boolean z) throws Throwable {
-            try {
-                setter.invokeExact(obj, z);
-            } catch (Throwable e) {
-                throw new InternalError(e);
-            }
-        }
+    private VarHandleBooleanFieldAccessorImpl(Field field, MethodHandle getter, MethodHandle setter) {
+        super(field, getter, setter);
     }
 
     public Object get(Object obj) throws IllegalArgumentException {
-        return Boolean.valueOf(getBoolean(obj));
+        return getBoolean(obj);
     }
 
+    @Override
     public boolean getBoolean(Object obj) throws IllegalArgumentException {
-        ensureObj(obj);
         try {
-            return getValue(obj);
-        } catch (IllegalArgumentException|NullPointerException e) {
-            throw e;
+            return (boolean) getter.invokeExact(obj);
         } catch (ClassCastException e) {
-            throw newGetIllegalArgumentException(obj.getClass());
+            throwSetIllegalArgumentException(obj);
+            return false;
         } catch (Throwable e) {
             throw new InternalError(e);
         }
@@ -150,81 +82,60 @@ abstract class VarHandleBooleanFieldAccessorImpl extends VarHandleFieldAccessorI
     }
 
     public void set(Object obj, Object value)
-            throws IllegalArgumentException, IllegalAccessException
-    {
-        ensureObj(obj);
-        if (isReadOnly()) {
-            throwFinalFieldIllegalAccessException(value);
-        }
-
-        if (value == null) {
-            throwSetIllegalArgumentException(value);
-        }
-
+        throws IllegalArgumentException, IllegalAccessException {
         if (value instanceof Boolean b) {
-            setBoolean(obj, b.booleanValue());
+            setBoolean(obj, b);
         } else {
             throwSetIllegalArgumentException(value);
         }
     }
 
-    public void setBoolean(Object obj, boolean z)
-        throws IllegalArgumentException, IllegalAccessException
-    {
-        ensureObj(obj);
+    @Override
+    public void setBoolean(Object obj, boolean value) throws IllegalArgumentException, IllegalAccessException {
         if (isReadOnly()) {
-            throwFinalFieldIllegalAccessException(z);
+            throwFinalFieldIllegalAccessException(value);
         }
         try {
-            setValue(obj, z);
-        } catch (IllegalArgumentException|NullPointerException e) {
-            throw e;
+            setter.invokeExact(obj, value);
         } catch (ClassCastException e) {
-            throw newSetIllegalArgumentException(obj.getClass());
+            throwSetIllegalArgumentException(obj);
         } catch (Throwable e) {
             throw new InternalError(e);
         }
     }
 
     public void setByte(Object obj, byte b)
-        throws IllegalArgumentException, IllegalAccessException
-    {
+        throws IllegalArgumentException, IllegalAccessException {
         throwSetIllegalArgumentException(b);
     }
 
     public void setChar(Object obj, char c)
-        throws IllegalArgumentException, IllegalAccessException
-    {
+        throws IllegalArgumentException, IllegalAccessException {
         throwSetIllegalArgumentException(c);
     }
 
     public void setShort(Object obj, short s)
-        throws IllegalArgumentException, IllegalAccessException
-    {
+        throws IllegalArgumentException, IllegalAccessException {
         throwSetIllegalArgumentException(s);
     }
 
     public void setInt(Object obj, int i)
-        throws IllegalArgumentException, IllegalAccessException
-    {
+        throws IllegalArgumentException, IllegalAccessException {
         throwSetIllegalArgumentException(i);
     }
 
     public void setLong(Object obj, long l)
-        throws IllegalArgumentException, IllegalAccessException
-    {
+        throws IllegalArgumentException, IllegalAccessException {
         throwSetIllegalArgumentException(l);
     }
 
     public void setFloat(Object obj, float f)
-        throws IllegalArgumentException, IllegalAccessException
-    {
+        throws IllegalArgumentException, IllegalAccessException {
         throwSetIllegalArgumentException(f);
     }
 
     public void setDouble(Object obj, double d)
-        throws IllegalArgumentException, IllegalAccessException
-    {
+        throws IllegalArgumentException, IllegalAccessException {
         throwSetIllegalArgumentException(d);
     }
 }
