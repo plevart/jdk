@@ -617,6 +617,11 @@ public class ReflectionFactory {
     private static Config config;
 
     private static Config config() {
+        var c = config;
+        if (c != null) {
+            return c;
+        }
+
         // Defer initialization until module system is initialized so as
         // to avoid inflation and spinning bytecode in unnamed modules
         // during early startup.
@@ -624,10 +629,7 @@ public class ReflectionFactory {
             return defaultConfig;
         }
 
-        var c = config;
-        if (c == null) {
-            config = c = new Config(true);
-        }
+        config = c = new Config(true);
         return c;
     }
 
