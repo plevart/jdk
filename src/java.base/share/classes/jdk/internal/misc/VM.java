@@ -90,8 +90,15 @@ public class VM {
      * @see java.lang.System#initPhase2
      */
     public static boolean isModuleSystemInited() {
-        return initLevel >= MODULE_SYSTEM_INITED;
+        if (moduleSystemInited) {
+            return true;
+        }
+        if (initLevel >= MODULE_SYSTEM_INITED) {
+            return moduleSystemInited = true;
+        }
+        return false;
     }
+    private static @Stable boolean moduleSystemInited;
 
     private static @Stable boolean javaLangInvokeInited;
     public static void setJavaLangInvokeInited() {
@@ -109,8 +116,15 @@ public class VM {
      * Returns {@code true} if the VM is fully initialized.
      */
     public static boolean isBooted() {
-        return initLevel >= SYSTEM_BOOTED;
+        if (booted) {
+            return true;
+        }
+        if (initLevel >= SYSTEM_BOOTED) {
+            return booted = true;
+        }
+        return false;
     }
+    private static @Stable boolean booted;
 
     /**
      * Set shutdown state.  Shutdown completes when all registered shutdown
@@ -126,8 +140,15 @@ public class VM {
      * Returns {@code true} if the VM has been shutdown
      */
     public static boolean isShutdown() {
-        return initLevel == SYSTEM_SHUTDOWN;
+        if (shutdown) {
+            return true;
+        }
+        if (initLevel == SYSTEM_SHUTDOWN) {
+            return shutdown = true;
+        }
+        return false;
     }
+    private static @Stable boolean shutdown;
 
     // A user-settable upper limit on the maximum amount of allocatable direct
     // buffer memory.  This value may be changed during VM initialization if
