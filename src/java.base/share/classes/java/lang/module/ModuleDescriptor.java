@@ -106,7 +106,7 @@ public class ModuleDescriptor
          * An open module. An open module does not declare any open packages
          * but the resulting module is treated as if all packages are open.
          */
-        OPEN(AccessFlag.OPEN.mask()),
+        OPEN(AccessFlag.OPEN),
 
         /**
          * An automatic module. An automatic module is treated as if it exports
@@ -115,23 +115,23 @@ public class ModuleDescriptor
          * @apiNote This modifier does not correspond to a module flag in the
          * binary form of a module declaration ({@code module-info.class}).
          */
-        AUTOMATIC(0 /* no flag per above comment */),
+        AUTOMATIC(null /* no flag per above comment */),
 
         /**
          * The module was not explicitly or implicitly declared.
          */
-        SYNTHETIC(AccessFlag.SYNTHETIC.mask()),
+        SYNTHETIC(AccessFlag.SYNTHETIC),
 
         /**
          * The module was implicitly declared.
          */
-        MANDATED(AccessFlag.MANDATED.mask());
+        MANDATED(AccessFlag.MANDATED);
 
-        private int mask;
-        private Modifier(int mask) {
-            this.mask = mask;
+        private AccessFlag accessFlag;
+        Modifier(AccessFlag accessFlag) {
+            this.accessFlag = accessFlag;
         }
-        private int mask() {return mask;}
+        private AccessFlag accessFlag() {return accessFlag;}
     }
 
     /**
@@ -158,30 +158,33 @@ public class ModuleDescriptor
              * module</i> to have an implicitly declared dependence on the module
              * named by the {@code Requires}.
              */
-            TRANSITIVE(AccessFlag.TRANSITIVE.mask()),
+            TRANSITIVE(AccessFlag.TRANSITIVE),
 
             /**
              * The dependence is mandatory in the static phase, during compilation,
              * but is optional in the dynamic phase, during execution.
              */
-            STATIC(AccessFlag.STATIC.mask()),
+            STATIC(AccessFlag.STATIC),
 
             /**
              * The dependence was not explicitly or implicitly declared in the
              * source of the module declaration.
              */
-            SYNTHETIC(AccessFlag.SYNTHETIC.mask()),
+            SYNTHETIC(AccessFlag.SYNTHETIC),
 
             /**
              * The dependence was implicitly declared in the source of the module
              * declaration.
              */
-            MANDATED(AccessFlag.MANDATED.mask());
-            private int mask;
-            private Modifier(int mask) {
-                this.mask = mask;
+            MANDATED(AccessFlag.MANDATED);
+
+            private final AccessFlag accessFlag;
+
+            Modifier(AccessFlag accessFlag) {
+                this.accessFlag = accessFlag;
             }
-            private int mask() {return mask;}
+
+            private AccessFlag accessFlag() {return accessFlag;}
         }
         private final Set<Modifier> mods;
         private final String name;
@@ -220,11 +223,11 @@ public class ModuleDescriptor
          * @since 19
          */
         public Set<AccessFlag> accessFlags() {
-            int mask = 0;
+            var accessFlags = EnumSet.noneOf(AccessFlag.class);
             for (var modifier : mods) {
-                mask |= modifier.mask();
+                accessFlags.add(modifier.accessFlag());
             }
-            return AccessFlag.maskToAccessFlags(mask, AccessFlag.Location.MODULE_REQUIRES);
+            return Collections.unmodifiableSet(accessFlags);
         }
 
         /**
@@ -400,19 +403,19 @@ public class ModuleDescriptor
              * The export was not explicitly or implicitly declared in the
              * source of the module declaration.
              */
-            SYNTHETIC(AccessFlag.SYNTHETIC.mask()),
+            SYNTHETIC(AccessFlag.SYNTHETIC),
 
             /**
              * The export was implicitly declared in the source of the module
              * declaration.
              */
-            MANDATED(AccessFlag.MANDATED.mask());
+            MANDATED(AccessFlag.MANDATED);
 
-            private int mask;
-            private Modifier(int mask) {
-                this.mask = mask;
+            private AccessFlag accessFlag;
+            Modifier(AccessFlag accessFlag) {
+                this.accessFlag = accessFlag;
             }
-            private int mask() {return mask;}
+            private AccessFlag accessFlag() {return accessFlag;}
         }
 
         private final Set<Modifier> mods;
@@ -454,11 +457,11 @@ public class ModuleDescriptor
          * @since 19
          */
         public Set<AccessFlag> accessFlags() {
-            int mask = 0;
+            var accessFlags = EnumSet.noneOf(AccessFlag.class);
             for (var modifier : mods) {
-                mask |= modifier.mask();
+                accessFlags.add(modifier.accessFlag());
             }
-            return AccessFlag.maskToAccessFlags(mask, AccessFlag.Location.MODULE_EXPORTS);
+            return Collections.unmodifiableSet(accessFlags);
         }
 
         /**
@@ -623,18 +626,19 @@ public class ModuleDescriptor
              * The open package was not explicitly or implicitly declared in
              * the source of the module declaration.
              */
-            SYNTHETIC(AccessFlag.SYNTHETIC.mask()),
+            SYNTHETIC(AccessFlag.SYNTHETIC),
 
             /**
              * The open package was implicitly declared in the source of the
              * module declaration.
              */
-            MANDATED(AccessFlag.MANDATED.mask());
-            private int mask;
-            private Modifier(int mask) {
-                this.mask = mask;
+            MANDATED(AccessFlag.MANDATED);
+
+            private AccessFlag accessFlag;
+            Modifier(AccessFlag accessFlag) {
+                this.accessFlag = accessFlag;
             }
-            private int mask() {return mask;}
+            private AccessFlag accessFlag() {return accessFlag;}
         }
 
         private final Set<Modifier> mods;
@@ -676,11 +680,11 @@ public class ModuleDescriptor
          * @since 19
          */
         public Set<AccessFlag> accessFlags() {
-            int mask = 0;
+            var accessFlags = EnumSet.noneOf(AccessFlag.class);
             for (var modifier : mods) {
-                mask |= modifier.mask();
+               accessFlags.add(modifier.accessFlag());
             }
-            return AccessFlag.maskToAccessFlags(mask, AccessFlag.Location.MODULE_OPENS);
+            return Collections.unmodifiableSet(accessFlags);
         }
 
         /**
@@ -1361,11 +1365,13 @@ public class ModuleDescriptor
      * @since 19
      */
     public Set<AccessFlag> accessFlags() {
-        int mask = 0;
+        var accessFlags = EnumSet.noneOf(AccessFlag.class);
         for (var modifier : modifiers) {
-            mask |= modifier.mask();
+            if (modifier.accessFlag() != null) {
+                accessFlags.add(modifier.accessFlag());
+            }
         }
-        return AccessFlag.maskToAccessFlags(mask, AccessFlag.Location.MODULE);
+        return Collections.unmodifiableSet(accessFlags);
     }
 
     /**

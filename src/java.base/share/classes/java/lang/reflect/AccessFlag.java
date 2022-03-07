@@ -25,10 +25,12 @@
 
 package java.lang.reflect;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Map;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
-import static java.util.Map.entry;
 
 /**
  * Represents a JVM access or module-related flag on a runtime member,
@@ -244,10 +246,13 @@ public enum AccessFlag {
     // mutable.
     private Set<Location> locations;
 
-    private AccessFlag(int mask, boolean sourceModifier, Set<Location> locations) {
+    AccessFlag(int mask, boolean sourceModifier, Set<Location> locations) {
         this.mask = mask;
         this.sourceModifier = sourceModifier;
         this.locations = locations;
+        for (var location : locations) {
+            location.accessFlags.add(this);
+        }
     }
 
     /**
@@ -283,7 +288,7 @@ public enum AccessFlag {
      */
     public static Set<AccessFlag> maskToAccessFlags(int mask, Location location) {
         Set<AccessFlag> result = java.util.EnumSet.noneOf(AccessFlag.class);
-        for (var accessFlag : LocationToFlags.locationToFlags.get(location)) {
+        for (var accessFlag : location.accessFlags) {
             int accessMask = accessFlag.mask();
             if ((mask &  accessMask) != 0) {
                 result.add(accessFlag);
@@ -360,37 +365,9 @@ public enum AccessFlag {
          */
         MODULE_OPENS;
 
-    }
-
-    private static class LocationToFlags {
-        private static Map<Location, Set<AccessFlag>> locationToFlags =
-            Map.ofEntries(entry(Location.CLASS,
-                                Set.of(PUBLIC, FINAL, SUPER,
-                                       INTERFACE, ABSTRACT,
-                                       SYNTHETIC, ANNOTATION,
-                                       ENUM, AccessFlag.MODULE)),
-                          entry(Location.FIELD,
-                                Set.of(PUBLIC, PRIVATE, PROTECTED,
-                                       STATIC, FINAL, VOLATILE,
-                                       TRANSIENT, SYNTHETIC, ENUM)),
-                          entry(Location.METHOD,
-                                Set.of(PUBLIC, PRIVATE, PROTECTED,
-                                       STATIC, FINAL, SYNCHRONIZED,
-                                       BRIDGE, VARARGS, NATIVE,
-                                       ABSTRACT, STRICT, SYNTHETIC)),
-                          entry(Location.INNER_CLASS,
-                                Set.of(PUBLIC, PRIVATE, PROTECTED,
-                                       STATIC, FINAL, INTERFACE, ABSTRACT,
-                                       SYNTHETIC, ANNOTATION, ENUM)),
-                          entry(Location.METHOD_PARAMETER,
-                                Set.of(FINAL, SYNTHETIC, MANDATED)),
-                          entry(Location.MODULE,
-                                Set.of(OPEN, SYNTHETIC, MANDATED)),
-                          entry(Location.MODULE_REQUIRES,
-                                Set.of(TRANSITIVE, STATIC_PHASE, SYNTHETIC, MANDATED)),
-                          entry(Location.MODULE_EXPORTS,
-                                Set.of(SYNTHETIC, MANDATED)),
-                          entry(Location.MODULE_OPENS,
-                                Set.of(SYNTHETIC, MANDATED)));
+        // available for use after AccessFlag enum constants are initialized
+        // using ArrayList instead of EnumSet here to prevent initialization loop
+        // (EnumSet<AccessFlag> would need AccessFlag enum constants be fully initialized)
+        private final List<AccessFlag> accessFlags = new ArrayList<>();
     }
 }
