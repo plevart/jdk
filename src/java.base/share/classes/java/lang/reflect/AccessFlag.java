@@ -25,10 +25,18 @@
 
 package java.lang.reflect;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.Map;
+import java.util.EnumSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Set;
-import static java.util.Map.entry;
+import java.util.Spliterator;
+import java.util.function.Consumer;
+import java.util.function.IntFunction;
+import java.util.stream.Stream;
 
 /**
  * Represents a JVM access or module-related flag on a runtime member,
@@ -83,171 +91,184 @@ public enum AccessFlag {
      * modifier {@link Modifier#PUBLIC public}.
      */
     PUBLIC(Modifier.PUBLIC, true,
-           Set.of(Location.CLASS, Location.FIELD, Location.METHOD,
-                  Location.INNER_CLASS)),
+           EnumSet.of(Location.CLASS, Location.FIELD, Location.METHOD,
+                      Location.INNER_CLASS)),
 
     /**
      * The access flag {@code ACC_PRIVATE}, corresponding to the
      * source modifier {@link Modifier#PRIVATE private}.
      */
     PRIVATE(Modifier.PRIVATE, true,
-            Set.of(Location.FIELD, Location.METHOD, Location.INNER_CLASS)),
+            EnumSet.of(Location.FIELD, Location.METHOD, Location.INNER_CLASS)),
 
     /**
      * The access flag {@code ACC_PROTECTED}, corresponding to the
      * source modifier {@link Modifier#PROTECTED protected}.
      */
     PROTECTED(Modifier.PROTECTED, true,
-              Set.of(Location.FIELD, Location.METHOD, Location.INNER_CLASS)),
+              EnumSet.of(Location.FIELD, Location.METHOD, Location.INNER_CLASS)),
 
     /**
      * The access flag {@code ACC_STATIC}, corresponding to the source
      * modifier {@link Modifier#STATIC static}.
      */
     STATIC(Modifier.STATIC, true,
-           Set.of(Location.FIELD, Location.METHOD, Location.INNER_CLASS)),
+           EnumSet.of(Location.FIELD, Location.METHOD, Location.INNER_CLASS)),
 
     /**
      * The access flag {@code ACC_FINAL}, corresponding to the source
      * modifier {@link Modifier#FINAL final}.
      */
     FINAL(Modifier.FINAL, true,
-          Set.of(Location.CLASS, Location.FIELD, Location.METHOD,
-                 Location.INNER_CLASS, Location.METHOD_PARAMETER)),
+          EnumSet.of(Location.CLASS, Location.FIELD, Location.METHOD,
+                     Location.INNER_CLASS, Location.METHOD_PARAMETER)),
 
     /**
      * The access flag {@code ACC_SUPER}.
      */
-    SUPER(0x0000_0020, false, Set.of(Location.CLASS)),
+    SUPER(0x0000_0020, false, EnumSet.of(Location.CLASS)),
 
     /**
      * The module flag {@code ACC_OPEN}.
+     *
      * @see java.lang.module.ModuleDescriptor#isOpen
      */
-    OPEN(0x0000_0020, false, Set.of(Location.MODULE)),
+    OPEN(0x0000_0020, false, EnumSet.of(Location.MODULE)),
 
     /**
      * The module requires flag {@code ACC_TRANSITIVE}.
+     *
      * @see java.lang.module.ModuleDescriptor.Requires.Modifier#TRANSITIVE
      */
-    TRANSITIVE(0x0000_0020, false, Set.of(Location.MODULE_REQUIRES)),
+    TRANSITIVE(0x0000_0020, false, EnumSet.of(Location.MODULE_REQUIRES)),
 
     /**
      * The access flag {@code ACC_SYNCHRONIZED}, corresponding to the
      * source modifier {@link Modifier#SYNCHRONIZED synchronized}.
      */
-    SYNCHRONIZED(Modifier.SYNCHRONIZED, true, Set.of(Location.METHOD)),
+    SYNCHRONIZED(Modifier.SYNCHRONIZED, true, EnumSet.of(Location.METHOD)),
 
     /**
      * The module requires flag {@code ACC_STATIC_PHASE}.
+     *
      * @see java.lang.module.ModuleDescriptor.Requires.Modifier#STATIC
      */
-    STATIC_PHASE(0x0000_0040, false, Set.of(Location.MODULE_REQUIRES)),
+    STATIC_PHASE(0x0000_0040, false, EnumSet.of(Location.MODULE_REQUIRES)),
 
-     /**
-      * The access flag {@code ACC_VOLATILE}, corresponding to the
-      * source modifier {@link Modifier#VOLATILE volatile}.
-      */
-    VOLATILE(Modifier.VOLATILE, true, Set.of(Location.FIELD)),
+    /**
+     * The access flag {@code ACC_VOLATILE}, corresponding to the
+     * source modifier {@link Modifier#VOLATILE volatile}.
+     */
+    VOLATILE(Modifier.VOLATILE, true, EnumSet.of(Location.FIELD)),
 
     /**
      * The access flag {@code ACC_BRIDGE}
+     *
      * @see Method#isBridge()
      */
-    BRIDGE(0x0000_0040, false, Set.of(Location.METHOD)),
+    BRIDGE(0x0000_0040, false, EnumSet.of(Location.METHOD)),
 
     /**
      * The access flag {@code ACC_TRANSIENT}, corresponding to the
      * source modifier {@link Modifier#TRANSIENT transient}.
      */
-    TRANSIENT(Modifier.TRANSIENT, true, Set.of(Location.FIELD)),
+    TRANSIENT(Modifier.TRANSIENT, true, EnumSet.of(Location.FIELD)),
 
     /**
      * The access flag {@code ACC_VARARGS}.
+     *
      * @see Executable#isVarArgs()
      */
-    VARARGS(0x0000_0080, false, Set.of(Location.METHOD)),
+    VARARGS(0x0000_0080, false, EnumSet.of(Location.METHOD)),
 
     /**
      * The access flag {@code ACC_NATIVE}, corresponding to the source
      * modifier {@link Modifier#NATIVE native}.
      */
-    NATIVE(Modifier.NATIVE, true, Set.of(Location.METHOD)),
+    NATIVE(Modifier.NATIVE, true, EnumSet.of(Location.METHOD)),
 
     /**
      * The access flag {@code ACC_INTERFACE}.
+     *
      * @see Class#isInterface()
      */
     INTERFACE(Modifier.INTERFACE, false,
-              Set.of(Location.CLASS, Location.INNER_CLASS)),
+              EnumSet.of(Location.CLASS, Location.INNER_CLASS)),
 
     /**
      * The access flag {@code ACC_ABSTRACT}, corresponding to the
      * source modifier {@code link Modifier#ABSTRACT abstract}.
      */
     ABSTRACT(Modifier.ABSTRACT, true,
-             Set.of(Location.CLASS, Location.METHOD, Location.INNER_CLASS)),
+             EnumSet.of(Location.CLASS, Location.METHOD, Location.INNER_CLASS)),
 
     /**
      * The access flag {@code ACC_STRICT}, corresponding to the source
      * modifier {@link Modifier#STRICT strictfp}.
      */
-    STRICT(Modifier.STRICT, true, Set.of(Location.METHOD)),
+    STRICT(Modifier.STRICT, true, EnumSet.of(Location.METHOD)),
 
     /**
      * The access flag {@code ACC_SYNTHETIC}.
+     *
      * @see Class#isSynthetic()
      * @see Executable#isSynthetic()
      * @see java.lang.module.ModuleDescriptor.Modifier#SYNTHETIC
      */
     SYNTHETIC(0x0000_1000, false,
-              Set.of(Location.CLASS, Location.FIELD, Location.METHOD,
-                     Location.INNER_CLASS, Location.METHOD_PARAMETER,
-                     Location.MODULE, Location.MODULE_REQUIRES,
-                     Location.MODULE_EXPORTS, Location.MODULE_OPENS)),
+              EnumSet.of(Location.CLASS, Location.FIELD, Location.METHOD,
+                         Location.INNER_CLASS, Location.METHOD_PARAMETER,
+                         Location.MODULE, Location.MODULE_REQUIRES,
+                         Location.MODULE_EXPORTS, Location.MODULE_OPENS)),
 
     /**
      * The access flag {@code ACC_ANNOTATION}.
+     *
      * @see Class#isAnnotation()
      */
     ANNOTATION(0x0000_2000, false,
-               Set.of(Location.CLASS, Location.INNER_CLASS)),
+               EnumSet.of(Location.CLASS, Location.INNER_CLASS)),
 
     /**
      * The access flag {@code ACC_ENUM}.
+     *
      * @see Class#isEnum()
      */
     ENUM(0x0000_4000, false,
-         Set.of(Location.CLASS, Location.FIELD, Location.INNER_CLASS)),
+         EnumSet.of(Location.CLASS, Location.FIELD, Location.INNER_CLASS)),
 
     /**
      * The access flag {@code ACC_MANDATED}.
      */
     MANDATED(0x0000_8000, false,
-             Set.of(Location.METHOD_PARAMETER,
-                    Location.MODULE, Location.MODULE_REQUIRES,
-                    Location.MODULE_EXPORTS, Location.MODULE_OPENS)),
+             EnumSet.of(Location.METHOD_PARAMETER,
+                        Location.MODULE, Location.MODULE_REQUIRES,
+                        Location.MODULE_EXPORTS, Location.MODULE_OPENS)),
 
     /**
      * The access flag {@code ACC_MODULE}.
      */
-    MODULE(0x0000_8000, false, Set.of(Location.CLASS))
-    ;
+    MODULE(0x0000_8000, false, EnumSet.of(Location.CLASS));
 
     // May want to override toString for a different enum constant ->
     // name mapping.
 
-    private int mask;
-    private boolean sourceModifier;
+    private final int mask;
+    private final boolean sourceModifier;
 
-    // Intentionally using Set rather than EnumSet since EnumSet is
-    // mutable.
-    private Set<Location> locations;
+    private final EnumSet<Location> locations;
+    private final Set<Location> unmodifiableLocations;
 
-    private AccessFlag(int mask, boolean sourceModifier, Set<Location> locations) {
+    AccessFlag(int mask, boolean sourceModifier, EnumSet<Location> locations) {
         this.mask = mask;
         this.sourceModifier = sourceModifier;
         this.locations = locations;
+        this.unmodifiableLocations = Collections.unmodifiableSet(locations);
+        for (var location : locations) {
+            location.allAccessFlags.add(this);
+            // assert location.fullMask & mask == 0;
+            location.allMask |= mask;
+        }
     }
 
     /**
@@ -269,7 +290,7 @@ public enum AccessFlag {
      * {@return kinds of constructs the flag can be applied to}
      */
     public Set<Location> locations() {
-        return locations;
+        return unmodifiableLocations;
     }
 
     /**
@@ -279,23 +300,10 @@ public enum AccessFlag {
      * @param mask bit mask of access flags
      * @param location context to interpret mask value
      * @throw IllegalArgumentException if the mask contains bit
-     * positions not support for the location in question
+     * positions not supported for the location in question
      */
     public static Set<AccessFlag> maskToAccessFlags(int mask, Location location) {
-        Set<AccessFlag> result = java.util.EnumSet.noneOf(AccessFlag.class);
-        for (var accessFlag : LocationToFlags.locationToFlags.get(location)) {
-            int accessMask = accessFlag.mask();
-            if ((mask &  accessMask) != 0) {
-                result.add(accessFlag);
-                mask = mask & ~accessMask;
-            }
-        }
-        if (mask != 0) {
-            throw new IllegalArgumentException("Unmatched bit position 0x" +
-                                               Integer.toHexString(mask) +
-                                               " for location " + location);
-        }
-        return Collections.unmodifiableSet(result);
+        return new AccessFlagSet(mask, location);
     }
 
     /**
@@ -360,37 +368,176 @@ public enum AccessFlag {
          */
         MODULE_OPENS;
 
+        // following two are initialized during initialization of AccessFlag enum constants
+        // and should be used only after they are fully initialized (with a HB edge) ...
+        private final List<AccessFlag> allAccessFlags = new ArrayList<>(16);
+        private int allMask;
     }
 
-    private static class LocationToFlags {
-        private static Map<Location, Set<AccessFlag>> locationToFlags =
-            Map.ofEntries(entry(Location.CLASS,
-                                Set.of(PUBLIC, FINAL, SUPER,
-                                       INTERFACE, ABSTRACT,
-                                       SYNTHETIC, ANNOTATION,
-                                       ENUM, AccessFlag.MODULE)),
-                          entry(Location.FIELD,
-                                Set.of(PUBLIC, PRIVATE, PROTECTED,
-                                       STATIC, FINAL, VOLATILE,
-                                       TRANSIENT, SYNTHETIC, ENUM)),
-                          entry(Location.METHOD,
-                                Set.of(PUBLIC, PRIVATE, PROTECTED,
-                                       STATIC, FINAL, SYNCHRONIZED,
-                                       BRIDGE, VARARGS, NATIVE,
-                                       ABSTRACT, STRICT, SYNTHETIC)),
-                          entry(Location.INNER_CLASS,
-                                Set.of(PUBLIC, PRIVATE, PROTECTED,
-                                       STATIC, FINAL, INTERFACE, ABSTRACT,
-                                       SYNTHETIC, ANNOTATION, ENUM)),
-                          entry(Location.METHOD_PARAMETER,
-                                Set.of(FINAL, SYNTHETIC, MANDATED)),
-                          entry(Location.MODULE,
-                                Set.of(OPEN, SYNTHETIC, MANDATED)),
-                          entry(Location.MODULE_REQUIRES,
-                                Set.of(TRANSITIVE, STATIC_PHASE, SYNTHETIC, MANDATED)),
-                          entry(Location.MODULE_EXPORTS,
-                                Set.of(SYNTHETIC, MANDATED)),
-                          entry(Location.MODULE_OPENS,
-                                Set.of(SYNTHETIC, MANDATED)));
+    /**
+     * An immutable Set based on a bit-mask constructed by ORing single-bit masks
+     * of elements and a Location which is a source of the universe of elements.
+     */
+    private static final class AccessFlagSet implements java.util.Set<AccessFlag> {
+        private final int mask;
+        private final Location location;
+
+        private AccessFlagSet(int mask, Location location) {
+            int unmatchedMask = mask & ~location.allMask;
+            if (unmatchedMask != 0) {
+                throw new IllegalArgumentException("Unmatched bit position(s) 0x" +
+                                                   Integer.toHexString(unmatchedMask) +
+                                                   " for location " + location);
+            }
+            this.mask = mask;
+            this.location = location;
+        }
+
+        @Override
+        public int size() {
+            return Integer.bitCount(mask);
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return mask == 0;
+        }
+
+        @Override
+        public boolean contains(Object o) {
+            return o instanceof AccessFlag af &&
+                   (af.mask & mask) != 0 &&
+                   af.locations.contains(location);
+        }
+
+        @Override
+        public Iterator<AccessFlag> iterator() {
+            // have to wrap it to prevent modification
+            return new Iterator<>() {
+                private final Iterator<AccessFlag> i = location.allAccessFlags.iterator();
+                private AccessFlag next;
+
+                @Override
+                public boolean hasNext() {
+                    if (next != null) {
+                        return true;
+                    } else {
+                        while (i.hasNext()) {
+                            var af = i.next();
+                            if ((af.mask & mask) != 0) {
+                                next = af;
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+                }
+
+                @Override
+                public AccessFlag next() {
+                    if (!hasNext()) {
+                        throw new NoSuchElementException();
+                    }
+                    var af = next;
+                    next = null;
+                    return af;
+                }
+            };
+        }
+
+        @Override
+        public boolean containsAll(Collection<?> c) {
+            for (var o : c) {
+                if (!contains(o)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        @Override
+        public Object[] toArray() {
+            return stream().toArray();
+        }
+
+        @Override
+        @SuppressWarnings({"unchecked", "SuspiciousToArrayCall", "SimplifyStreamApiCallChains"})
+        public <T> T[] toArray(T[] a) {
+            return stream().toArray(len -> {
+                if (a.length >= len) {
+                    if (a.length > len) {
+                        a[len] = null;
+                    }
+                    return a;
+                } else {
+                    return (T[])Array.newInstance(a.getClass().getComponentType(), len);
+                }
+            });
+        }
+
+        @Override
+        @SuppressWarnings("SimplifyStreamApiCallChains")
+        public void forEach(Consumer<? super AccessFlag> action) {
+            stream().forEach(action);
+        }
+
+        /** @noinspection SuspiciousToArrayCall*/
+        @Override
+        @SuppressWarnings({"SuspiciousToArrayCall", "SimplifyStreamApiCallChains"})
+        public <T> T[] toArray(IntFunction<T[]> generator) {
+            return stream().toArray(generator);
+        }
+
+        @Override
+        public Stream<AccessFlag> stream() {
+            return location
+                .allAccessFlags
+                .stream()
+                .filter(af -> (af.mask & mask) != 0);
+        }
+
+        @Override
+        public Stream<AccessFlag> parallelStream() {
+            return stream().parallel();
+        }
+
+        @Override
+        public Spliterator<AccessFlag> spliterator() {
+            return stream().spliterator();
+        }
+
+        @Override
+        public boolean add(AccessFlag accessFlag) {
+            throw uoe();
+        }
+
+        @Override
+        public boolean remove(Object o) {
+            throw uoe();
+        }
+
+        @Override
+        public boolean addAll(Collection<? extends AccessFlag> c) {
+            throw uoe();
+        }
+
+        @Override
+        public boolean retainAll(Collection<?> c) {
+            throw uoe();
+        }
+
+        @Override
+        public boolean removeAll(Collection<?> c) {
+            throw uoe();
+        }
+
+        @Override
+        public void clear() {
+            throw uoe();
+        }
+
+        private static UnsupportedOperationException uoe() {
+            return new UnsupportedOperationException();
+        }
     }
 }
