@@ -26,6 +26,7 @@
 package java.lang.reflect;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -505,6 +506,31 @@ public enum AccessFlag {
         public Spliterator<AccessFlag> spliterator() {
             return stream().spliterator();
         }
+
+        // Object methods
+
+        @Override
+        public int hashCode() {
+            return location.ordinal() + 31 * mask;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return
+                obj instanceof AccessFlagSet afSet
+                ? (this.mask == afSet.mask &&
+                   this.location == afSet.location)
+                : (obj instanceof Set<?> set &&
+                   this.size() == set.size() &&
+                   containsAll(set));
+        }
+
+        @Override
+        public String toString() {
+            return Arrays.toString(toArray());
+        }
+
+        // unsupported methods
 
         @Override
         public boolean add(AccessFlag accessFlag) {
