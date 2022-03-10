@@ -511,18 +511,20 @@ public enum AccessFlag {
 
         @Override
         public int hashCode() {
-            return location.ordinal() + 31 * mask;
+            int h = 0;
+            for (var af : location.allAccessFlags) {
+                if ((af.mask & mask) != 0) {
+                    h += af.hashCode();
+                }
+            }
+            return h;
         }
 
         @Override
         public boolean equals(Object obj) {
-            return
-                obj instanceof AccessFlagSet afSet
-                ? (this.mask == afSet.mask &&
-                   this.location == afSet.location)
-                : (obj instanceof Set<?> set &&
-                   this.size() == set.size() &&
-                   containsAll(set));
+            return obj instanceof Set<?> set &&
+                   size() == set.size() &&
+                   containsAll(set);
         }
 
         @Override
