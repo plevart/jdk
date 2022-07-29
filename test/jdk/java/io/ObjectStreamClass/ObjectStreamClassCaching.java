@@ -30,13 +30,40 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-/* @test
+/*
+ * @test id=with_G1GC
+ * @requires vm.gc.G1
  * @bug 8277072
  * @library /test/lib/
- * @summary ObjectStreamClass caches keep ClassLoaders alive
+ * @summary ObjectStreamClass caches keep ClassLoaders alive (G1 GC)
  * @run testng/othervm -Xmx64m -XX:+UseG1GC ObjectStreamClassCaching
- * @run testng/othervm -Xmx64m -XX:+UseShenandoahGC ObjectStreamClassCaching
+ */
+
+/*
+ * @test id=with_ParallelGC
+ * @requires vm.gc.Parallel
+ * @bug 8277072
+ * @library /test/lib/
+ * @summary ObjectStreamClass caches keep ClassLoaders alive (Parallel GC)
+ * @run testng/othervm -Xmx64m -XX:+UseParallelGC ObjectStreamClassCaching
+ */
+
+/*
+ * @test id=with_ZGC
+ * @requires vm.gc.Z
+ * @bug 8277072
+ * @library /test/lib/
+ * @summary ObjectStreamClass caches keep ClassLoaders alive (Z GC)
  * @run testng/othervm -Xmx64m -XX:+UseZGC ObjectStreamClassCaching
+ */
+
+/*
+ * @test id=with_ShenandoahGC
+ * @requires vm.gc.Shenandoah
+ * @bug 8277072
+ * @library /test/lib/
+ * @summary ObjectStreamClass caches keep ClassLoaders alive (Shenandoah GC)
+ * @run testng/othervm -Xmx64m -XX:+UseShenandoahGC ObjectStreamClassCaching
  */
 public class ObjectStreamClassCaching {
 
@@ -70,7 +97,7 @@ public class ObjectStreamClassCaching {
         Thread.sleep(100L);
     }
 
-    @Test(enabled = true)
+    @Test
     public void test2CacheReleaseUnderMemoryPressure() throws Exception {
         var list = new ArrayList<>();
         var ref = lookupObjectStreamClass(TestClass2.class);
