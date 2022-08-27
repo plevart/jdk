@@ -626,8 +626,8 @@ final class Resolver {
         // to propagate
         for (Set<ResolvedModule> m1Reads : g1.values()) {
             Collection<ResolvedModule> remainingM1Reads = m1Reads;
-            while (!remainingM1Reads.isEmpty()) {
-                List<ResolvedModule> toAdd = new ArrayList<>();
+            while (remainingM1Reads != null) {
+                List<ResolvedModule> toAdd = null;
                 for (ResolvedModule m2 : remainingM1Reads) {
                     Set<ResolvedModule> m2RequiresTransitive = g2.get(m2);
                     if (m2RequiresTransitive != null) {
@@ -635,12 +635,15 @@ final class Resolver {
                             if (!m1Reads.contains(m3)) {
                                 // m1 reads m2, m2 requires transitive m3
                                 // => need to add m1 reads m3
+                                if (toAdd == null) {
+                                    toAdd = new ArrayList<>();
+                                }
                                 toAdd.add(m3);
                             }
                         }
                     }
                 }
-                if (!toAdd.isEmpty()) {
+                if (toAdd != null) {
                     m1Reads.addAll(toAdd);
                 }
                 remainingM1Reads = toAdd;
