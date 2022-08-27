@@ -624,12 +624,11 @@ final class Resolver {
 
         // Iteratively update g1 until there are no more requires transitive
         // to propagate
-        List<ResolvedModule> toAdd = new ArrayList<>();
         for (Set<ResolvedModule> m1Reads : g1.values()) {
-            boolean changed;
-            do {
-                changed = false;
-                for (ResolvedModule m2 : m1Reads) {
+            Collection<ResolvedModule> remainingM1Reads = m1Reads;
+            while (!remainingM1Reads.isEmpty()) {
+                List<ResolvedModule> toAdd = new ArrayList<>();
+                for (ResolvedModule m2 : remainingM1Reads) {
                     Set<ResolvedModule> m2RequiresTransitive = g2.get(m2);
                     if (m2RequiresTransitive != null) {
                         for (ResolvedModule m3 : m2RequiresTransitive) {
@@ -643,10 +642,9 @@ final class Resolver {
                 }
                 if (!toAdd.isEmpty()) {
                     m1Reads.addAll(toAdd);
-                    toAdd.clear();
-                    changed = true;
                 }
-            } while (changed);
+                remainingM1Reads = toAdd;
+            }
         }
 
         return g1;
